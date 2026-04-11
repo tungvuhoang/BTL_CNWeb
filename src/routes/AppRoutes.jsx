@@ -20,7 +20,13 @@ const AppRoutes = () => (
       <Route path={ROUTES.REGISTER} element={<RegisterPage />} />
     </Route>
 
-    <Route element={<ProtectedRoute><HostLayout /></ProtectedRoute>}>
+    <Route
+      element={
+        <ProtectedRoute>
+          <HostLayout />
+        </ProtectedRoute>
+      }
+    >
       <Route path={ROUTES.HOST_QUIZZES} element={<HostQuizzesPage />} />
       <Route path={ROUTES.HOST_QUIZ_DETAIL} element={<HostQuizDetailPage />} />
       <Route path={ROUTES.HOST_ROOM} element={<HostRoomPage />} />
