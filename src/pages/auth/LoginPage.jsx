@@ -5,6 +5,7 @@ import { login as loginApi } from '../../api/authApi';
 import { ROUTES } from '../../utils/constants';
 import { PlayerContainer, PlayerInput, PlayerButton } from '../../components/PlayerContainer';
 import OAuthButtons from '../../components/OAuthButtons';
+import styles from './Auth.module.css';
 
 const LoginPage = () => {
   const { login } = useAuth();
@@ -69,8 +70,8 @@ const LoginPage = () => {
       />
 
       {/* Username & Password Form */}
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
+      <form onSubmit={handleSubmit} className={styles.form}>
+        <div className={styles.inputGroup}>
           <PlayerInput
             name="username"
             type="text"
@@ -80,10 +81,10 @@ const LoginPage = () => {
             autoComplete="username"
             disabled={loading}
           />
-          {errors.username && <p className="text-red-500 text-sm mt-2">{errors.username}</p>}
+          {errors.username && <p className={styles.errorText}>{errors.username}</p>}
         </div>
 
-        <div>
+        <div className={styles.inputGroup}>
           <PlayerInput
             name="password"
             type="password"
@@ -93,32 +94,32 @@ const LoginPage = () => {
             autoComplete="current-password"
             disabled={loading}
           />
-          {errors.password && <p className="text-red-500 text-sm mt-2">{errors.password}</p>}
+          {errors.password && <p className={styles.errorText}>{errors.password}</p>}
         </div>
 
-        {serverError && <p className="text-red-500 text-center text-sm bg-red-50 p-3 rounded-lg">{serverError}</p>}
+        {serverError && <p className={styles.serverError}>{serverError}</p>}
 
         <PlayerButton 
           type="submit" 
           size="xl" 
           variant="primary" 
           disabled={loading}
-          className={`mt-6 ${loading ? 'opacity-60 cursor-not-allowed' : ''}`}
+          className={styles.submitBtn}
         >
           {loading ? '⏳ Đang đăng nhập...' : '🚀 Đăng Nhập'}
         </PlayerButton>
       </form>
 
       {/* Forgot Password & Sign Up */}
-      <div className="space-y-3 mt-6">
-        <p className="text-center text-sm text-indigo-600 hover:text-indigo-700 cursor-pointer font-semibold">
+      <div className={styles.footerSection}>
+        <button className={styles.linkButton}>
           Quên mật khẩu?
-        </p>
+        </button>
         
-        <div className="border-t border-gray-200 pt-4">
-          <p className="text-center text-gray-600 text-sm">
+        <div className={styles.dividerBox}>
+          <p className={styles.footerText}>
             Chưa có tài khoản?{' '}
-            <Link to={ROUTES.REGISTER} className="text-indigo-600 font-semibold hover:text-indigo-700">
+            <Link to={ROUTES.REGISTER} className={styles.linkButton}>
               Đăng ký ngay
             </Link>
           </p>

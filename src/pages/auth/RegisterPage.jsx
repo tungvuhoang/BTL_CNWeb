@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { register as registerApi } from '../../api/authApi';
 import { ROUTES } from '../../utils/constants';
 import { PlayerContainer, PlayerInput, PlayerButton } from '../../components/PlayerContainer';
+import styles from './Auth.module.css';
 
 const RegisterPage = () => {
   const navigate = useNavigate();
@@ -53,8 +54,8 @@ const RegisterPage = () => {
 
   return (
     <PlayerContainer title="Đăng Ký">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
+      <form onSubmit={handleSubmit} className={styles.form}>
+        <div className={styles.inputGroup}>
           <PlayerInput
             name="username"
             type="text"
@@ -62,11 +63,12 @@ const RegisterPage = () => {
             value={form.username}
             onChange={handleChange}
             autoComplete="username"
+            disabled={loading}
           />
-          {errors.username && <p className="text-red-500 text-sm mt-2">{errors.username}</p>}
+          {errors.username && <p className={styles.errorText}>{errors.username}</p>}
         </div>
 
-        <div>
+        <div className={styles.inputGroup}>
           <PlayerInput
             name="password"
             type="password"
@@ -74,11 +76,12 @@ const RegisterPage = () => {
             value={form.password}
             onChange={handleChange}
             autoComplete="new-password"
+            disabled={loading}
           />
-          {errors.password && <p className="text-red-500 text-sm mt-2">{errors.password}</p>}
+          {errors.password && <p className={styles.errorText}>{errors.password}</p>}
         </div>
 
-        <div>
+        <div className={styles.inputGroup}>
           <PlayerInput
             name="confirmPassword"
             type="password"
@@ -86,29 +89,32 @@ const RegisterPage = () => {
             value={form.confirmPassword}
             onChange={handleChange}
             autoComplete="new-password"
+            disabled={loading}
           />
-          {errors.confirmPassword && <p className="text-red-500 text-sm mt-2">{errors.confirmPassword}</p>}
+          {errors.confirmPassword && <p className={styles.errorText}>{errors.confirmPassword}</p>}
         </div>
 
-        {serverError && <p className="text-red-500 text-center text-sm bg-red-50 p-3 rounded-lg">{serverError}</p>}
+        {serverError && <p className={styles.serverError}>{serverError}</p>}
 
         <PlayerButton 
           type="submit" 
           size="xl" 
           variant="primary" 
           disabled={loading}
-          className={`mt-8 ${loading ? 'opacity-60 cursor-not-allowed' : ''}`}
+          className={styles.submitBtn}
         >
           {loading ? '⏳ Đang đăng ký...' : '🎮 Đăng Ký'}
         </PlayerButton>
       </form>
 
-      <p className="text-center text-gray-600 text-sm mt-6">
-        Đã có tài khoản?{' '}
-        <Link to={ROUTES.LOGIN} className="text-indigo-600 font-semibold hover:text-indigo-700">
-          Đăng nhập
-        </Link>
-      </p>
+      <div className={styles.footerTextContainer}>
+        <p className={styles.footerText}>
+          Đã có tài khoản?{' '}
+          <Link to={ROUTES.LOGIN} className={styles.linkButton}>
+            Đăng nhập
+          </Link>
+        </p>
+      </div>
     </PlayerContainer>
   );
 };

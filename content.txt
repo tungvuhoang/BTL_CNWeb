@@ -1,0 +1,979 @@
+1. Tổng quan dự án
+1.1 Mục tiêu
+Xây dựng web quiz realtime kiểu Kahoot, gồm 2 vai trò:
+Host
+• đăng ký / đăng nhập
+• tạo quiz
+• thêm / sửa / xóa câu hỏi
+• tạo phòng chơi
+• xem player join
+• start game
+• chuyển câu tiếp theo
+• kết thúc game
+• xem leaderboard
+Player
+• không cần đăng nhập
+• nhập PIN + tên để vào phòng
+• chờ host start
+• nhận câu hỏi realtime
+• chọn đáp án
+• nhận điểm
+• xem leaderboard
+• reconnect được khi refresh
+2. Kiến trúc hệ thống
+2.1 Công nghệ chốt
+Backend
+• Spring Boot
+• Spring Web
+• Spring Security
+• Spring Data JPA
+• MySQL Driver
+• Validation
+• Lombok
+• JWT
+• WebSocket + STOMP
+Frontend
+• React
+• Vite
+• React Router
+• Axios
+• SockJS / STOMP client
+2.2 Kiến trúc xử lý
+REST
+Dùng cho:
+• auth
+• quiz CRUD
+• question CRUD
+• create room
+• join room
+• start / next / end
+• current question snapshot
+• submit answer
+• leaderboard snapshot
+WebSocket
+Dùng cho:
+• player joined realtime
+• game started realtime
+• question changed realtime
+• leaderboard updated realtime
+• game ended realtime
+Nguyên tắc
+• REST = xử lý logic + ghi DB + validate
+• WebSocket = broadcast event
+• không dùng WebSocket để thay toàn bộ REST
+3. Quy ước naming
+3.1 JSON
+Dùng camelCase
+Ví dụ:
+• currentQuestionIndex
+• questionStartedAt
+• pointsEarned
+3.2 Database
+Dùng snake_case
+Ví dụ:
+• game_rooms
+• current_question_index
+• question_started_at
+3.3 API path
+Dùng kebab-case
+Ví dụ:
+• /api/game-rooms
+• /current-question
+• /submit-answer
+4. Database schema final
+4.1 Bảng users
+Column Type Constraint
+id BIGINT PK, auto increment
+username VARCHAR(100) unique, not null
+password_hash VARCHAR(255) not null
+created_at DATETIME not null
+Ý nghĩa
+Lưu tài khoản host.
+4.2 Bảng quizzes
+Column Type Constraint
+id BIGINT PK, auto increment
+host_id BIGINT FK -> users.id, not null
+title VARCHAR(255) not null
+created_at DATETIME not null
+Quan hệ
+• 1 user có nhiều quiz
+• 1 quiz thuộc 1 host
+4.3 Bảng questions
+Column Type Constraint
+id BIGINT PK, auto increment
+quiz_id BIGINT FK -> quizzes.id, not null
+content TEXT not null
+answer_a TEXT not null
+answer_b TEXT not null
+answer_c TEXT not null
+answer_d TEXT not null
+correct_answer VARCHAR(1) not null
+time_limit INT not null
+created_at DATETIME not null
+Rule
+• correct_answer chỉ nhận: A, B, C, D
+• time_limit > 0
+4.4 Bảng game_rooms
+Column Type Constraint
+id BIGINT PK, auto increment
+quiz_id BIGINT FK -> quizzes.id, not null
+pin VARCHAR(20) unique, not null
+Column Type Constraint
+status VARCHAR(20) not null
+current_question_index INT not null, default -1
+started_at DATETIME null
+ended_at DATETIME null
+question_started_at DATETIME null
+created_at DATETIME not null
+Rule
+• status chỉ nhận:
+o waiting
+o playing
+o finished
+• current_question_index = -1 nghĩa là chưa start
+4.5 Bảng players
+Column Type Constraint
+id BIGINT PK, auto increment
+room_id BIGINT FK -> game_rooms.id, not null
+name VARCHAR(100) not null
+score INT not null, default 0
+session_id VARCHAR(255) null
+is_connected BOOLEAN not null, default true
+last_seen_at DATETIME null
+Column Type Constraint
+joined_at DATETIME not null
+Unique
+• (room_id, name)
+Ý nghĩa
+Trong cùng 1 room không cho 2 người trùng tên.
+4.6 Bảng player_answers
+Column Type Constraint
+id BIGINT PK, auto increment
+room_id BIGINT FK -> game_rooms.id, not null
+player_id BIGINT FK -> players.id, not null
+question_id BIGINT FK -> questions.id, not null
+selected_answer VARCHAR(1) not null
+is_correct BOOLEAN not null
+points_earned INT not null, default 0
+answered_at DATETIME not null
+Unique
+• (room_id, player_id, question_id)
+Rule
+• 1 player chỉ được submit 1 lần cho 1 question trong 1 room
+5. Enum và constant chốt cứng
+5.1 RoomStatus
+• waiting
+• playing
+• finished
+5.2 AnswerOption
+• A
+• B
+• C
+• D
+5.3 Điểm
+• đúng: 100
+• sai: 0
+6. Business rules final
+6.1 Auth
+Host
+• phải login
+• dùng JWT
+• được phép:
+o quản lý quiz
+o quản lý question
+o tạo room
+o start / next / end game
+Player
+• không cần login
+• chỉ join bằng:
+o pin
+o name
+6.2 Quiz ownership
+Mọi API host thao tác với quiz hoặc room phải check:
+• quiz đó thuộc host đang login
+• room đó được tạo từ quiz của host đang login
+Nếu không đúng:
+• trả lỗi QUIZ_FORBIDDEN hoặc AUTH_FORBIDDEN
+6.3 Start game
+Điều kiện
+• room đang waiting
+• quiz có ít nhất 1 question
+Khi start
+• status = playing
+• currentQuestionIndex = 0
+• startedAt = now
+• questionStartedAt = now
+Event broadcast
+• GAME_STARTED
+• QUESTION_CHANGED
+6.4 Current question
+Question hiện tại được xác định bởi:
+• currentQuestionIndex
+Player được thấy
+• questionId
+• content
+• answerA
+• answerB
+• answerC
+• answerD
+• timeLimit
+• timeRemaining
+• questionNumber
+• totalQuestions
+Player không được thấy
+• correctAnswer
+6.5 Timer
+Server lưu
+• questionStartedAt
+• timeLimit
+Client tự tính
+timeRemaining = timeLimit - (currentTime - questionStartedAt)
+Rule
+Nếu timeRemaining <= 0
+• coi như hết giờ
+• không cho submit nữa
+Ghi chú
+Server không cần push countdown mỗi giây.
+6.6 Submit answer
+Hợp lệ khi
+• room đang playing
+• player thuộc room đó
+• questionId gửi lên đúng là current question
+• player chưa submit câu đó
+• chưa hết giờ
+Khi submit
+• nếu đúng:
+o isCorrect = true
+o pointsEarned = 100
+• nếu sai:
+o isCorrect = false
+o pointsEarned = 0
+Sau đó:
+• lưu vào player_answers
+• cộng điểm vào players.score
+Event broadcast
+• LEADERBOARD_UPDATED
+6.7 Next question
+Chỉ host được gọi
+Logic
+• nếu room không ở playing → reject
+• nếu còn câu tiếp theo:
+o currentQuestionIndex += 1
+o questionStartedAt = now
+o broadcast QUESTION_CHANGED
+• nếu hết câu:
+o status = finished
+o endedAt = now
+o broadcast GAME_ENDED
+Không cần chờ tất cả player trả lời
+Host có thể bấm next thủ công.
+6.8 End game
+Chỉ host được gọi
+Khi end
+• status = finished
+• endedAt = now
+Event broadcast
+• GAME_ENDED
+6.9 Reconnect
+Player refresh
+Frontend phải:
+1. đọc localStorage:
+o playerRoomId
+o playerId
+o playerName
+2. gọi REST snapshot:
+o room state
+o current question
+o leaderboard
+3. reconnect websocket
+Backend luôn phải check
+• playerId có thuộc roomId không
+7. Response format chung
+7.1 Success response
+{
+ "success": true,
+ "data": {},
+ "message": "Success"
+}
+7.2 Error response
+{
+ "success": false,
+ "message": "Room not found",
+ "errorCode": "ROOM_NOT_FOUND",
+ "timestamp": "2026-04-08T21:00:00"
+}
+8. Error code final
+8.1 Auth
+• AUTH_USERNAME_ALREADY_EXISTS
+• AUTH_INVALID_CREDENTIALS
+• AUTH_UNAUTHORIZED
+• AUTH_FORBIDDEN
+8.2 Quiz / Question
+• QUIZ_NOT_FOUND
+• QUESTION_NOT_FOUND
+• QUIZ_FORBIDDEN
+• INVALID_QUESTION_DATA
+8.3 Room
+• ROOM_NOT_FOUND
+• ROOM_ALREADY_FINISHED
+• ROOM_NOT_PLAYING
+• ROOM_ALREADY_STARTED
+• ROOM_INVALID_STATUS
+8.4 Player
+• PLAYER_NAME_ALREADY_EXISTS
+• PLAYER_NOT_FOUND
+• PLAYER_NOT_IN_ROOM
+8.5 Answer / Game
+• ANSWER_ALREADY_SUBMITTED
+• QUESTION_NOT_CURRENT
+• QUESTION_TIME_EXPIRED
+• GAME_NOT_STARTED
+• GAME_ALREADY_FINISHED
+8.6 System
+• VALIDATION_ERROR
+• INTERNAL_SERVER_ERROR
+9. REST API final
+9.1 Auth APIs
+POST /api/auth/register
+Request
+{
+ "username": "teacher1",
+ "password": "123456"
+}
+Response
+{
+ "success": true,
+ "data": null,
+ "message": "Register successful"
+}
+POST /api/auth/login
+Request
+{
+ "username": "teacher1",
+ "password": "123456"
+}
+Response
+{
+ "success": true,
+ "data": {
+ "token": "jwt_token",
+ "username": "teacher1"
+ },
+ "message": "Login successful"
+}
+9.2 Quiz APIs
+POST /api/quizzes
+Auth: host
+Request
+{
+ "title": "English Vocabulary Quiz"
+}
+Response
+{
+ "success": true,
+ "data": {
+ "quizId": 1,
+ "title": "English Vocabulary Quiz",
+ "hostId": 2
+ },
+ "message": "Quiz created"
+}
+GET /api/quizzes/my
+Auth: host
+Response
+{
+ "success": true,
+ "data": [
+ {
+ "quizId": 1,
+ "title": "English Vocabulary Quiz",
+ "createdAt": "2026-04-08T20:00:00"
+ }
+ ],
+ "message": "Quiz list fetched"
+}
+GET /api/quizzes/{quizId}
+Auth: host
+Response
+{
+ "success": true,
+ "data": {
+ "quizId": 1,
+ "title": "English Vocabulary Quiz",
+ "hostId": 2,
+ "createdAt": "2026-04-08T20:00:00",
+ "questions": [
+ {
+ "questionId": 101,
+ "content": "What is the synonym of happy?",
+ "answerA": "Sad",
+ "answerB": "Joyful",
+ "answerC": "Angry",
+ "answerD": "Tired",
+ "correctAnswer": "B",
+ "timeLimit": 20
+ }
+ ]
+ },
+ "message": "Quiz detail fetched"
+}
+PUT /api/quizzes/{quizId}
+Auth: host
+Request
+{
+ "title": "Updated quiz title"
+}
+Response
+{
+ "success": true,
+ "data": null,
+ "message": "Quiz updated"
+}
+DELETE /api/quizzes/{quizId}
+Auth: host
+Response
+{
+ "success": true,
+ "data": null,
+ "message": "Quiz deleted"
+}
+9.3 Question APIs
+POST /api/quizzes/{quizId}/questions
+Auth: host
+Request
+{
+ "content": "What is the synonym of happy?",
+ "answerA": "Sad",
+ "answerB": "Joyful",
+ "answerC": "Angry",
+ "answerD": "Tired",
+ "correctAnswer": "B",
+ "timeLimit": 20
+}
+Response
+{
+ "success": true,
+ "data": {
+ "questionId": 101
+ },
+ "message": "Question added"
+}
+PUT /api/questions/{questionId}
+Auth: host
+Request
+{
+ "content": "Updated question",
+ "answerA": "A1",
+ "answerB": "B1",
+ "answerC": "C1",
+ "answerD": "D1",
+ "correctAnswer": "A",
+ "timeLimit": 15
+}
+Response
+{
+ "success": true,
+ "data": null,
+ "message": "Question updated"
+}
+DELETE /api/questions/{questionId}
+Auth: host
+Response
+{
+ "success": true,
+ "data": null,
+ "message": "Question deleted"
+}
+9.4 Game room APIs
+POST /api/game-rooms
+Auth: host
+Request
+{
+ "quizId": 1
+}
+Response
+{
+ "success": true,
+ "data": {
+ "roomId": 10,
+ "quizId": 1,
+ "pin": "123456",
+ "status": "waiting",
+ "currentQuestionIndex": -1,
+ "createdAt": "2026-04-08T20:10:00"
+ },
+ "message": "Room created"
+}
+POST /api/game-rooms/join
+Auth: none
+Request
+{
+ "pin": "123456",
+ "name": "Phuong"
+}
+Response
+{
+ "success": true,
+ "data": {
+ "roomId": 10,
+ "playerId": 5,
+ "name": "Phuong",
+ "score": 0
+ },
+ "message": "Joined successfully"
+}
+GET /api/game-rooms/{roomId}
+Auth: none
+Response
+{
+ "success": true,
+ "data": {
+ "roomId": 10,
+ "quizId": 1,
+ "pin": "123456",
+ "status": "playing",
+ "currentQuestionIndex": 0,
+ "totalQuestions": 5,
+ "playerCount": 12
+ },
+ "message": "Room state fetched"
+}
+GET /api/game-rooms/{roomId}/players
+Auth: none
+Response
+{
+ "success": true,
+ "data": [
+ {
+ "playerId": 5,
+ "name": "Phuong",
+ "score": 100,
+ "joinedAt": "2026-04-08T20:11:00"
+ }
+ ],
+ "message": "Players fetched"
+}
+POST /api/game-rooms/{roomId}/start
+Auth: host
+Response
+{
+ "success": true,
+ "data": null,
+ "message": "Game started"
+}
+POST /api/game-rooms/{roomId}/next
+Auth: host
+Response
+{
+ "success": true,
+ "data": null,
+ "message": "Next question"
+}
+POST /api/game-rooms/{roomId}/end
+Auth: host
+Response
+{
+ "success": true,
+ "data": null,
+ "message": "Game ended"
+}
+9.5 Game APIs
+GET /api/game-rooms/{roomId}/current-question
+Auth: none
+Response
+{
+ "success": true,
+ "data": {
+ "questionId": 101,
+ "content": "What is the synonym of happy?",
+ "answerA": "Sad",
+ "answerB": "Joyful",
+ "answerC": "Angry",
+ "answerD": "Tired",
+ "timeLimit": 20,
+ "timeRemaining": 14,
+ "questionNumber": 1,
+ "totalQuestions": 5
+ },
+ "message": "Current question fetched"
+}
+POST /api/game-rooms/{roomId}/submit-answer
+Auth: none
+Request
+{
+ "playerId": 5,
+ "questionId": 101,
+ "selectedAnswer": "B"
+}
+Response
+{
+ "success": true,
+ "data": {
+ "isCorrect": true,
+ "pointsEarned": 100,
+ "totalScore": 100
+ },
+ "message": "Answer submitted"
+}
+GET /api/game-rooms/{roomId}/leaderboard
+Auth: none
+Response
+{
+ "success": true,
+ "data": [
+ {
+ "playerId": 5,
+ "name": "Phuong",
+ "score": 300
+ },
+ {
+ "playerId": 6,
+ "name": "An",
+ "score": 200
+ }
+ ],
+ "message": "Leaderboard fetched"
+}
+GET /api/game-rooms/{roomId}/players/{playerId}/answers
+Auth: none
+Response
+{
+ "success": true,
+ "data": [
+ {
+ "questionId": 101,
+ "selectedAnswer": "B",
+ "isCorrect": true,
+ "pointsEarned": 100,
+ "answeredAt": "2026-04-08T20:15:00"
+ }
+ ],
+ "message": "Player answers fetched"
+}
+10. API cần token
+10.1 Cần token
+• POST /api/quizzes
+• GET /api/quizzes/my
+• GET /api/quizzes/{quizId}
+• PUT /api/quizzes/{quizId}
+• DELETE /api/quizzes/{quizId}
+• POST /api/quizzes/{quizId}/questions
+• PUT /api/questions/{questionId}
+• DELETE /api/questions/{questionId}
+• POST /api/game-rooms
+• POST /api/game-rooms/{roomId}/start
+• POST /api/game-rooms/{roomId}/next
+• POST /api/game-rooms/{roomId}/end
+10.2 Không cần token
+• POST /api/game-rooms/join
+• GET /api/game-rooms/{roomId}
+• GET /api/game-rooms/{roomId}/players
+• GET /api/game-rooms/{roomId}/current-question
+• POST /api/game-rooms/{roomId}/submit-answer
+• GET /api/game-rooms/{roomId}/leaderboard
+• GET /api/game-rooms/{roomId}/players/{playerId}/answers
+11. WebSocket spec final
+11.1 Endpoint connect
+/ws
+11.2 Prefix
+• client send: /app
+• server push: /topic
+11.3 Subscribe topics
+• /topic/rooms/{roomId}
+• /topic/rooms/{roomId}/players
+• /topic/rooms/{roomId}/question
+• /topic/rooms/{roomId}/leaderboard
+12. Event format final
+Format chung
+{
+ "type": "EVENT_NAME",
+ "roomId": 10,
+ "payload": {}
+}
+Event type chỉ dùng
+• PLAYER_JOINED
+• GAME_STARTED
+• QUESTION_CHANGED
+• LEADERBOARD_UPDATED
+• GAME_ENDED
+13. Event payload samples
+13.1 PLAYER_JOINED
+Topic: /topic/rooms/{roomId}/players
+{
+ "type": "PLAYER_JOINED",
+ "roomId": 10,
+ "payload": {
+ "playerId": 5,
+ "name": "Phuong"
+ }
+}
+13.2 GAME_STARTED
+Topic: /topic/rooms/{roomId}
+{
+ "type": "GAME_STARTED",
+ "roomId": 10,
+ "payload": {
+ "currentQuestionIndex": 0,
+ "questionStartedAt": "2026-04-08T20:20:00",
+ "serverTime": "2026-04-08T20:20:00"
+ }
+}
+13.3 QUESTION_CHANGED
+Topic: /topic/rooms/{roomId}/question
+{
+ "type": "QUESTION_CHANGED",
+ "roomId": 10,
+ "payload": {
+ "questionId": 101,
+ "content": "What is the synonym of happy?",
+ "answerA": "Sad",
+ "answerB": "Joyful",
+ "answerC": "Angry",
+ "answerD": "Tired",
+ "timeLimit": 20,
+ "questionNumber": 1,
+ "totalQuestions": 5,
+ "questionStartedAt": "2026-04-08T20:20:00",
+ "serverTime": "2026-04-08T20:20:00"
+ }
+}
+13.4 LEADERBOARD_UPDATED
+Topic: /topic/rooms/{roomId}/leaderboard
+{
+ "type": "LEADERBOARD_UPDATED",
+ "roomId": 10,
+ "payload": [
+ {
+ "playerId": 5,
+ "name": "Phuong",
+ "score": 100
+ },
+ {
+ "playerId": 6,
+ "name": "An",
+ "score": 0
+ }
+ ]
+}
+13.5 GAME_ENDED
+Topic: /topic/rooms/{roomId}
+{
+ "type": "GAME_ENDED",
+ "roomId": 10,
+ "payload": {
+ "endedAt": "2026-04-08T20:30:00"
+ }
+}
+14. Realtime flow final
+14.1 Player join
+1. Player gọi REST POST /join
+2. Server tạo player record
+3. Server broadcast PLAYER_JOINED
+14.2 Host start
+1. Host gọi REST POST /start
+2. Server update DB
+3. Server broadcast:
+o GAME_STARTED
+o QUESTION_CHANGED
+14.3 Player submit
+1. Player gọi REST POST /submit-answer
+2. Server validate + lưu DB + cộng điểm
+3. Server broadcast LEADERBOARD_UPDATED
+14.4 Host next
+1. Host gọi REST POST /next
+2. Server update current question
+3. Server broadcast QUESTION_CHANGED
+4. Nếu hết câu thì broadcast GAME_ENDED
+14.5 Host end
+1. Host gọi REST POST /end
+2. Server update status
+3. Server broadcast GAME_ENDED
+15. Frontend routes final
+Host
+• /login
+• /register
+• /host/quizzes
+• /host/quizzes/:quizId
+• /host/rooms/:roomId
+Player
+• /play
+• /play/room/:roomId
+16. localStorage keys final
+Host
+• accessToken
+Player
+• playerRoomId
+• playerId
+• playerName
+17. Frontend behavior final
+17.1 Host side
+Login/Register
+• login thành công → lưu accessToken
+• dùng axios interceptor gắn Bearer token
+Quiz management
+• list quiz
+• create quiz
+• view quiz detail
+• add/edit/delete question
+Room page
+• hiển thị PIN
+• hiển thị player list realtime
+• start / next / end
+• hiển thị câu hiện tại
+• hiển thị leaderboard realtime
+17.2 Player side
+Join
+• nhập pin
+• nhập name
+• join thành công → lưu localStorage
+Lobby
+• chờ host start
+• subscribe websocket để nhận event
+Game screen
+• nhận question realtime
+• hiện countdown
+• submit 1 lần
+• disable sau khi submit hoặc hết giờ
+Leaderboard
+• cập nhật realtime
+Reconnect
+• đọc localStorage
+• gọi snapshot APIs
+• resubscribe socket
+18. Package structure backend
+com.example.quizweb
+├── config
+│ ├── SecurityConfig
+│ ├── JwtAuthenticationFilter
+│ ├── JwtTokenProvider
+│ ├── WebSocketConfig
+│ └── CorsConfig
+├── controller
+│ ├── AuthController
+│ ├── QuizController
+│ ├── QuestionController
+│ ├── GameRoomController
+│ └── GameController
+├── websocket
+│ ├── GameEventPublisher
+│ ├── WebSocketEventListener
+│ └── dto
+├── entity
+│ ├── User
+│ ├── Quiz
+│ ├── Question
+│ ├── GameRoom
+│ ├── Player
+│ └── PlayerAnswer
+├── repository
+│ ├── UserRepository
+│ ├── QuizRepository
+│ ├── QuestionRepository
+│ ├── GameRoomRepository
+│ ├── PlayerRepository
+│ └── PlayerAnswerRepository
+├── service
+│ ├── AuthService
+│ ├── QuizService
+│ ├── QuestionService
+│ ├── GameRoomService
+│ ├── GameService
+│ └── LeaderboardService
+├── dto
+│ ├── request
+│ └── response
+├── exception
+│ ├── ErrorCode
+│ ├── ApiException
+│ └── GlobalExceptionHandler
+└── common
+ └── ApiResponse
+19. Security final
+19.1 JWT áp dụng cho host
+Protected endpoints:
+• quiz APIs
+• question APIs
+• create room
+• start / next / end
+19.2 Public endpoints
+• join room
+• room state
+• current question
+• submit answer
+• leaderboard
+19.3 Lưu ý
+Dù player không có JWT, backend vẫn phải check:
+• playerId thuộc roomId
+20. Validation final
+20.1 Auth
+• username không rỗng
+• password không rỗng
+20.2 Quiz
+• title không rỗng
+20.3 Question
+• content không rỗng
+• 4 đáp án không rỗng
+• correctAnswer phải là A/B/C/D
+• timeLimit > 0
+20.4 Join room
+• pin không rỗng
+• name không rỗng
+20.5 Submit answer
+• selectedAnswer phải là A/B/C/D
+21. Git workflow final
+Branch
+• main
+• develop
+Working branches
+• be-auth-quiz
+• be-game-websocket
+• fe-host
+• fe-player
+Rule
+• không push thẳng main
+• merge vào develop trước
+• test full flow ổn mới merge main
+22. Thứ tự tích hợp hệ thống
+Test theo đúng flow này:
+1. host register
+2. host login
+3. host create quiz
+4. host add questions
+5. host create room
+6. player join room
+7. host thấy player realtime
+8. host start game
+9. player nhận question realtime
+10.player submit answer
+11.leaderboard update realtime
+12.host next question
+13.hết câu hoặc host end game
+14.player thấy game ended
+23. Phân công final
+BE1: Auth + quiz
+• setup project
+• config DB
+• config security/JWT
+• tạo toàn bộ entity
+• auth
+• quiz CRUD
+• question CRUD
+• common response
+• exception handling
+BE2: Game + websocket
+• room APIs
+• game logic
+• submit answer
+• leaderboard
+• websocket config
+• event broadcast
+FE1: Host
+• host auth UI
+• host quiz management UI
+• host room UI
+FE2:Player
+• player join/play UI
+• timer
+• leaderboard
+• websocket subscribe
+• reconnect flow
