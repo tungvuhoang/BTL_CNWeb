@@ -2,8 +2,9 @@ package com.example.quizweb.config;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.io.Decoders;
+import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -19,9 +20,12 @@ public class JwtTokenProvider {
     @Value("${jwt.expiration}")
     private long jwtExpiration;
 
-    private Key getSigningKey() {
+    private Key signingKey;
+
+    @PostConstruct
+    public void init() {
         byte[] keyBytes = Decoders.BASE64.decode(jwtSecret);
-        return Keys.hmacShaKeyFor(keyBytes);
+        this.signingKey = Keys.hmacShaKeyFor(keyBytes);
     }
 
     public String generateToken(String username) {
@@ -32,17 +36,28 @@ public class JwtTokenProvider {
                 .setSubject(username)
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
-                .signWith(getSigningKey())
+                .signWith(signingKey)
                 .compact();
     }
 
     public String getUsernameFromToken(String token) {
-        Claims claims = Jwts.parserBuilder()
-                .setSigningKey(getSigningKey())
+        return Jwts.parserBuilder()
+                .setSigningKey(signingKey)
                 .build()
                 .parseClaimsJws(token)
-                .getBody();
+                .getBody()
+                .getSubject();
+    }
 
-        return claims.getSubject();
+    public boolean validateToken(String token) {
+        try {
+            Jwts.parserBuilder()
+                    .setSigningKey(signingKey)
+                    .build()
+                    .parseClaimsJws(token);
+            return true;
+        } catch (Exception ex) {
+            return false;
+        }
     }
 }
