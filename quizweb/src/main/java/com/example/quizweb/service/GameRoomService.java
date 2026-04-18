@@ -3,7 +3,9 @@ package com.example.quizweb.service;
 import com.example.quizweb.dto.request.CreateRoomRequest;
 import com.example.quizweb.dto.request.JoinRoomRequest;
 import com.example.quizweb.dto.response.JoinRoomResponse;
+import com.example.quizweb.dto.response.PlayerResponse;
 import com.example.quizweb.dto.response.RoomResponse;
+import com.example.quizweb.dto.response.RoomStateResponse;
 import com.example.quizweb.entity.GameRoom;
 import com.example.quizweb.entity.Player;
 import com.example.quizweb.entity.Quiz;
@@ -20,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Random;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -117,5 +120,44 @@ public class GameRoomService {
                 .name(savedPlayer.getName())
                 .score(savedPlayer.getScore())
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public RoomStateResponse getRoomState(Long roomId) {
+        // 1. Tìm phòng
+        GameRoom room = gameRoomRepository.findById(roomId)
+                .orElseThrow(() -> new ApiException(ErrorCode.ROOM_NOT_FOUND, "Room not found"));
+
+        // 2. Tính toán chính xác tổng số câu và số người chơi
+        int totalQuestions = room.getQuiz().getQuestions().size();
+        int playerCount = room.getPlayers().size();
+
+        // 3. Trả về format chuẩn
+        return RoomStateResponse.builder()
+                .roomId(room.getId())
+                .quizId(room.getQuiz().getId())
+                .pin(room.getPin())
+                .status(room.getStatus())
+                .currentQuestionIndex(room.getCurrentQuestionIndex())
+                .totalQuestions(totalQuestions)
+                .playerCount(playerCount)
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public List<PlayerResponse> getPlayersInRoom(Long roomId) {
+        // 1. Tìm phòng
+        GameRoom room = gameRoomRepository.findById(roomId)
+                .orElseThrow(() -> new ApiException(ErrorCode.ROOM_NOT_FOUND, "Room not found"));
+
+        // 2. Map từ Entity Player sang PlayerResponse DTO
+        return room.getPlayers().stream()
+                .map(player -> PlayerResponse.builder()
+                        .playerId(player.getId())
+                        .name(player.getName())
+                        .score(player.getScore())
+                        .joinedAt(player.getJoinedAt())
+                        .build())
+                .toList();
     }
 }
