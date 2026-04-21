@@ -28,5 +28,19 @@ export function getHostBreadcrumbs(pathname) {
     ];
   }
 
+  if (pathname === ROUTES.HOST_REPORTS) {
+    return [
+      { to: ROUTES.HOST_QUIZZES, label: 'Host' },
+      { label: 'Báo cáo' },
+    ];
+  }
+
+  if (pathname === ROUTES.HOST_SETTINGS) {
+    return [
+      { to: ROUTES.HOST_QUIZZES, label: 'Host' },
+      { label: 'Cài đặt' },
+    ];
+  }
+
   return [{ to: ROUTES.HOST_QUIZZES, label: 'Host' }];
 }

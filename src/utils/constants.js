@@ -7,6 +7,8 @@ export const ROUTES = {
   LOGIN: '/login',
   REGISTER: '/register',
   HOST_QUIZZES: '/host/quizzes',
+  HOST_REPORTS: '/host/reports',
+  HOST_SETTINGS: '/host/settings',
   HOST_QUIZ_DETAIL: '/host/quizzes/:quizId',
   HOST_ROOM: '/host/rooms/:roomId',
   PLAY: '/play',

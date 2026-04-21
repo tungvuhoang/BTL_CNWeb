@@ -3,8 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import { ROUTES } from "../utils/constants";
 
 const Header = ({
-  title,
-  links = [],
+  crumbs = [],
   showLogout = true,
   onMenuToggle,
   menuOpen = false,
@@ -18,70 +17,62 @@ const Header = ({
   };
 
   return (
-    <header className="sticky top-0 z-30 border-b-4 border-kahoot-lime bg-gradient-host shadow-md">
+    <header className="base-header">
       <a className="skip-link" href="#main-content">
         Bỏ qua đến nội dung
       </a>
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:max-w-none lg:px-6">
-        <div className="flex min-w-0 flex-1 items-center gap-3">
+      <div className="base-header__container">
+        <div className="base-header__left">
           {onMenuToggle && (
             <button
               type="button"
-              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-2 border-white/30 bg-white/10 text-white transition hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-kahoot-lime lg:hidden"
+              className="base-header__menu-btn"
               aria-expanded={menuOpen}
               aria-controls="host-sidebar"
               onClick={onMenuToggle}
             >
               <span className="sr-only">Mở menu điều hướng</span>
-              <span className="flex flex-col gap-1.5" aria-hidden>
-                <span
-                  className={`block h-0.5 w-5 rounded-full bg-white transition ${
-                    menuOpen ? "translate-y-2 rotate-45" : ""
-                  }`}
-                />
-                <span
-                  className={`block h-0.5 w-5 rounded-full bg-white transition ${
-                    menuOpen ? "opacity-0" : ""
-                  }`}
-                />
-                <span
-                  className={`block h-0.5 w-5 rounded-full bg-white transition ${
-                    menuOpen ? "-translate-y-2 -rotate-45" : ""
-                  }`}
-                />
+              <span className="base-header__hamburger" aria-hidden>
+                <span className={`base-header__bar ${menuOpen ? "open" : ""}`} />
+                <span className={`base-header__bar ${menuOpen ? "open" : ""}`} />
+                <span className={`base-header__bar ${menuOpen ? "open" : ""}`} />
               </span>
             </button>
           )}
-          <div className="min-w-0">
-            <h1 className="my-0 truncate text-lg font-extrabold tracking-tight text-white drop-shadow-sm sm:text-xl">
-              {title}
-            </h1>
-            {username && (
-              <p className="truncate text-xs font-medium text-white/80 sm:text-sm">
-                Xin chào, <span className="font-semibold text-kahoot-lime">{username}</span>
-              </p>
-            )}
-          </div>
+          <nav aria-label="Breadcrumb" className="base-header__breadcrumb">
+            <ol className="base-header__breadcrumb-list">
+              {crumbs.map((c, i) => {
+                const last = i === crumbs.length - 1;
+                return (
+                  <li key={`${c.label}-${i}`} className="base-header__breadcrumb-item">
+                    {i > 0 && <span className="base-header__breadcrumb-separator">/</span>}
+                    {last || !c.to ? (
+                      <span className="base-header__breadcrumb-current">{c.label}</span>
+                    ) : (
+                      <Link to={c.to} className="base-header__breadcrumb-link">
+                        {c.label}
+                      </Link>
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
+          </nav>
         </div>
 
-        <nav aria-label="Thanh công cụ">
-          <ul className="flex list-none flex-wrap items-center justify-end gap-2 sm:gap-3">
-            {links.map((link, index) => (
-              <li key={index}>
-                <Link
-                  to={link.to}
-                  className="inline-flex rounded-xl border-2 border-transparent px-3 py-2 text-sm font-semibold text-white/95 transition hover:border-white/40 hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-kahoot-lime"
-                >
-                  {link.label}
-                </Link>
+        <nav aria-label="Thanh công cụ" className="base-header__toolbar">
+          <ul className="base-header__toolbar-list">
+            {username && (
+              <li className="base-header__username">
+                {username}
               </li>
-            ))}
+            )}
             {showLogout && (
               <li>
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="inline-flex items-center rounded-xl border-2 border-white bg-white px-3 py-2 text-sm font-bold text-kahoot-purple shadow-card transition hover:bg-kahoot-lime hover:text-kahoot-purple-deep hover:shadow-card-lg active:translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-kahoot-lime"
+                  className="base-header__logout-btn"
                 >
                   Đăng xuất
                 </button>

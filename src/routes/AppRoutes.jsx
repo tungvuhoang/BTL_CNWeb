@@ -9,6 +9,7 @@ import RegisterPage from '../pages/auth/RegisterPage';
 import HostQuizzesPage from '../pages/host/HostQuizzesPage';
 import HostQuizDetailPage from '../pages/host/HostQuizDetailPage';
 import HostRoomPage from '../pages/host/HostRoomPage';
+import HostPlaceholderPage from '../pages/host/HostPlaceholderPage';
 import PlayJoinPage from '../pages/player/PlayJoinPage';
 import PlayRoomPage from '../pages/player/PlayRoomPage';
 import NotFoundPage from '../pages/system/NotFoundPage';
@@ -28,6 +29,8 @@ const AppRoutes = () => (
       }
     >
       <Route path={ROUTES.HOST_QUIZZES} element={<HostQuizzesPage />} />
+      <Route path={ROUTES.HOST_REPORTS} element={<HostPlaceholderPage title="Báo cáo" />} />
+      <Route path={ROUTES.HOST_SETTINGS} element={<HostPlaceholderPage title="Cài đặt" />} />
       <Route path={ROUTES.HOST_QUIZ_DETAIL} element={<HostQuizDetailPage />} />
       <Route path={ROUTES.HOST_ROOM} element={<HostRoomPage />} />
     </Route>
