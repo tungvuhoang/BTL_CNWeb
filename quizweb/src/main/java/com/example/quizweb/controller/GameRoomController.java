@@ -3,10 +3,7 @@ package com.example.quizweb.controller;
 import com.example.quizweb.common.ApiResponse;
 import com.example.quizweb.dto.request.CreateRoomRequest;
 import com.example.quizweb.dto.request.JoinRoomRequest;
-import com.example.quizweb.dto.response.JoinRoomResponse;
-import com.example.quizweb.dto.response.PlayerResponse;
-import com.example.quizweb.dto.response.RoomResponse;
-import com.example.quizweb.dto.response.RoomStateResponse;
+import com.example.quizweb.dto.response.*;
 import com.example.quizweb.service.GameRoomService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -43,5 +40,29 @@ public class GameRoomController {
     public ApiResponse<List<PlayerResponse>> getPlayersInRoom(@PathVariable Long roomId) {
         List<PlayerResponse> response = gameRoomService.getPlayersInRoom(roomId);
         return ApiResponse.success(response, "Players fetched");
+    }
+
+    @PostMapping("/{roomId}/start")
+    public ApiResponse<Object> startGame(@PathVariable Long roomId) {
+        gameRoomService.startGame(roomId);
+        return ApiResponse.success(null, "Game started");
+    }
+
+    @PostMapping("/{roomId}/next")
+    public ApiResponse<Object> nextQuestion(@PathVariable Long roomId) {
+        gameRoomService.nextQuestion(roomId);
+        return ApiResponse.success(null, "Next question");
+    }
+
+    @PostMapping("/{roomId}/end")
+    public ApiResponse<Object> endGame(@PathVariable Long roomId) {
+        gameRoomService.endGame(roomId);
+        return ApiResponse.success(null, "Game ended");
+    }
+
+    @GetMapping("/{roomId}/current-question")
+    public ApiResponse<CurrentQuestionResponse> getCurrentQuestion(@PathVariable Long roomId) {
+        CurrentQuestionResponse response = gameRoomService.getCurrentQuestion(roomId);
+        return ApiResponse.success(response, "Current question fetched");
     }
 }

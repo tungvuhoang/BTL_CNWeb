@@ -2,14 +2,8 @@ package com.example.quizweb.service;
 
 import com.example.quizweb.dto.request.CreateRoomRequest;
 import com.example.quizweb.dto.request.JoinRoomRequest;
-import com.example.quizweb.dto.response.JoinRoomResponse;
-import com.example.quizweb.dto.response.PlayerResponse;
-import com.example.quizweb.dto.response.RoomResponse;
-import com.example.quizweb.dto.response.RoomStateResponse;
-import com.example.quizweb.entity.GameRoom;
-import com.example.quizweb.entity.Player;
-import com.example.quizweb.entity.Quiz;
-import com.example.quizweb.entity.RoomStatus;
+import com.example.quizweb.dto.response.*;
+import com.example.quizweb.entity.*;
 import com.example.quizweb.exception.ApiException;
 import com.example.quizweb.exception.ErrorCode;
 import com.example.quizweb.repository.GameRoomRepository;
@@ -21,6 +15,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.Random;
 import java.util.List;
 
@@ -159,5 +155,151 @@ public class GameRoomService {
                         .joinedAt(player.getJoinedAt())
                         .build())
                 .toList();
+    }
+
+    @Transactional
+    public void startGame(Long roomId) {
+        // 1. Kiểm tra phòng có tồn tại không
+        GameRoom room = gameRoomRepository.findById(roomId)
+                .orElseThrow(() -> new ApiException(ErrorCode.ROOM_NOT_FOUND, "Room not found"));
+
+        // 2. Validate quyền của Host đang đăng nhập
+        String currentUsername = SecurityContextHolder.getContext().getAuthentication().getName();
+        if (!room.getQuiz().getHost().getUsername().equals(currentUsername)) {
+            throw new ApiException(ErrorCode.QUIZ_FORBIDDEN, "You don't have permission to manage this room");
+        }
+
+        // 3. Validate trạng thái phòng (chỉ được start khi đang WAITING)
+//        if (room.getStatus() != RoomStatus.WAITING) {
+//            throw new ApiException(ErrorCode.ROOM_ALREADY_STARTED, "Room has already started or finished");
+//        }
+
+        // 4. Validate quiz phải có ít nhất 1 câu hỏi
+        List<Question> questions = room.getQuiz().getQuestions();
+        if (questions.isEmpty()) {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR, "Quiz must have at least 1 question to start");
+        }
+
+        // 5. Cập nhật trạng thái vòng đời game
+        LocalDateTime now = LocalDateTime.now();
+        room.setStatus(RoomStatus.PLAYING);
+        room.setCurrentQuestionIndex(0);
+        room.setStartedAt(now);
+        room.setQuestionStartedAt(now);
+
+        // 6. Broadcast events cho các client đang subscribe
+        gameEventPublisher.publishGameStarted(room.getId(), 0, now);
+
+        Question firstQuestion = questions.get(0);
+        gameEventPublisher.publishQuestionChanged(room.getId(), firstQuestion, 1, questions.size(), now);
+    }
+
+    @Transactional
+    public void nextQuestion(Long roomId) {
+        // 1. Tìm phòng và check quyền Host
+        GameRoom room = gameRoomRepository.findById(roomId)
+                .orElseThrow(() -> new ApiException(ErrorCode.ROOM_NOT_FOUND, "Room not found"));
+
+        String currentUsername = SecurityContextHolder.getContext().getAuthentication().getName();
+        if (!room.getQuiz().getHost().getUsername().equals(currentUsername)) {
+            throw new ApiException(ErrorCode.QUIZ_FORBIDDEN, "You don't have permission to manage this room");
+        }
+
+        // 2. Validate trạng thái (Chỉ được Next khi room đang PLAYING)
+        if (room.getStatus() == RoomStatus.WAITING) {
+            throw new ApiException(ErrorCode.GAME_NOT_STARTED, "Game has not started yet");
+        }
+
+        if (room.getStatus() == RoomStatus.FINISHED) {
+            throw new ApiException(ErrorCode.GAME_ALREADY_FINISHED, "Game has already finished");
+        }
+
+        // 3. Logic chuyển câu
+        List<Question> questions = room.getQuiz().getQuestions();
+        int nextIndex = room.getCurrentQuestionIndex() + 1;
+        LocalDateTime now = LocalDateTime.now();
+
+        if (nextIndex < questions.size()) {
+            // Trường hợp vẫn còn câu hỏi tiếp theo
+            room.setCurrentQuestionIndex(nextIndex);
+            room.setQuestionStartedAt(now); // Cập nhật lại thời gian bắt đầu câu mới
+
+            Question nextQuestion = questions.get(nextIndex);
+            gameEventPublisher.publishQuestionChanged(room.getId(), nextQuestion, nextIndex + 1, questions.size(), now);
+        } else {
+            // Trường hợp đã hết câu hỏi -> Tự động End Game
+            room.setStatus(RoomStatus.FINISHED);
+            room.setEndedAt(now);
+            gameEventPublisher.publishGameEnded(room.getId(), now);
+        }
+    }
+
+    @Transactional
+    public void endGame(Long roomId) {
+        // 1. Tìm phòng và check quyền Host
+        GameRoom room = gameRoomRepository.findById(roomId)
+                .orElseThrow(() -> new ApiException(ErrorCode.ROOM_NOT_FOUND, "Room not found"));
+
+        String currentUsername = SecurityContextHolder.getContext().getAuthentication().getName();
+        if (!room.getQuiz().getHost().getUsername().equals(currentUsername)) {
+            throw new ApiException(ErrorCode.QUIZ_FORBIDDEN, "You don't have permission to manage this room");
+        }
+
+        // Nếu đã End rồi thì thông báo (End game chủ động khi đã End game bị động)
+        if (room.getStatus() == RoomStatus.FINISHED) {
+            throw new ApiException(ErrorCode.ROOM_ALREADY_FINISHED, "Game has already ended");
+        }
+
+        // 2. End Game chủ động
+        LocalDateTime now = LocalDateTime.now();
+        room.setStatus(RoomStatus.FINISHED);
+        room.setEndedAt(now);
+        gameEventPublisher.publishGameEnded(room.getId(), now);
+    }
+
+    @Transactional(readOnly = true)
+    public CurrentQuestionResponse getCurrentQuestion(Long roomId) {
+        // 1. Tìm phòng và kiểm tra sự tồn tại
+        GameRoom room = gameRoomRepository.findById(roomId)
+                .orElseThrow(() -> new ApiException(ErrorCode.ROOM_NOT_FOUND, "Room not found"));
+
+        // 2. Kiểm tra trạng thái phòng, phải đang PLAYING mới có câu hỏi hiện tại
+        if (room.getStatus() == RoomStatus.WAITING) {
+            throw new ApiException(ErrorCode.GAME_NOT_STARTED, "Game has not started yet");
+        }
+
+        if (room.getStatus() == RoomStatus.FINISHED) {
+            throw new ApiException(ErrorCode.GAME_ALREADY_FINISHED, "Game has already finished");
+        }
+
+        // 3. Lấy danh sách câu hỏi và vị trí hiện tại
+        List<Question> questions = room.getQuiz().getQuestions();
+        int currentIndex = room.getCurrentQuestionIndex();
+
+        if (currentIndex < 0 || currentIndex >= questions.size()) {
+            throw new ApiException(ErrorCode.QUESTION_NOT_FOUND, "Current question not found");
+        }
+
+        Question currentQuestion = questions.get(currentIndex);
+
+        // 4. Tính toán thời gian còn lại (timeRemaining)
+        // Phục vụ client F5 hoặc bị văng, FE cần gọi API để tiếp tục hiển thị countdown đúng
+        // Công thức: timeRemaining = timeLimit - (currentTime - questionStartedAt)
+        long secondsElapsed = Duration.between(room.getQuestionStartedAt(), LocalDateTime.now()).getSeconds();
+        long timeRemaining = Math.max(0, currentQuestion.getTimeLimit() - secondsElapsed); // Min là 0, khỏi đưa số âm đỡ phải validate
+
+        // 5. Trả về DTO (không chứa correctAnswer)
+        return CurrentQuestionResponse.builder()
+                .questionId(currentQuestion.getId())
+                .content(currentQuestion.getContent())
+                .answerA(currentQuestion.getAnswerA())
+                .answerB(currentQuestion.getAnswerB())
+                .answerC(currentQuestion.getAnswerC())
+                .answerD(currentQuestion.getAnswerD())
+                .timeLimit(currentQuestion.getTimeLimit())
+                .timeRemaining(timeRemaining)
+                .questionNumber(currentIndex + 1)
+                .totalQuestions(questions.size())
+                .build();
     }
 }
