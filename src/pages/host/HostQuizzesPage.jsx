@@ -58,7 +58,21 @@ const HostQuizzesPage = () => {
       const res = await getMyQuizzes();
       setQuizzes(res.data ?? []);
     } catch {
-      message.error('Không thể tải danh sách quiz');
+      message.info('BE chưa chạy, hiển thị dữ liệu mẫu (mock data)');
+      setQuizzes([
+        {
+          quizId: 1,
+          title: 'Quiz Toán Học Lớp 10',
+          questionCount: 5,
+          createdAt: new Date().toISOString()
+        },
+        {
+          quizId: 2,
+          title: 'Quiz Vật Lý - Động Lực Học',
+          questionCount: 12,
+          createdAt: new Date().toISOString()
+        }
+      ]);
     } finally {
       setLoading(false);
     }
