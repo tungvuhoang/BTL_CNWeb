@@ -1,0 +1,16 @@
+import { BrowserRouter } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import { SocketProvider } from './context/SocketContext';
+import AppRoutes from './routes/AppRoutes';
+
+const App = () => (
+  <BrowserRouter>
+    <AuthProvider>
+      <SocketProvider>
+        <AppRoutes />
+      </SocketProvider>
+    </AuthProvider>
+  </BrowserRouter>
+);
+
+export default App;
