@@ -1,5 +1,6 @@
 package com.example.quizweb.websocket;
 
+import com.example.quizweb.dto.response.LeaderboardEntryResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
@@ -7,6 +8,7 @@ import com.example.quizweb.entity.Question;
 import java.time.LocalDateTime;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Component
@@ -78,5 +80,14 @@ public class GameEventPublisher {
         event.put("payload", payload);
 
         messagingTemplate.convertAndSend("/topic/rooms/" + roomId, event);
+    }
+
+    public void publishLeaderboardUpdated(Long roomId, List<LeaderboardEntryResponse> leaderboard) {
+        Map<String, Object> event = new HashMap<>();
+        event.put("type", "LEADERBOARD_UPDATED");
+        event.put("roomId", roomId);
+        event.put("payload", leaderboard); // Payload là một mảng danh sách người chơi
+
+        messagingTemplate.convertAndSend("/topic/rooms/" + roomId + "/leaderboard", event);
     }
 }

@@ -3,6 +3,7 @@ package com.example.quizweb.controller;
 import com.example.quizweb.common.ApiResponse;
 import com.example.quizweb.dto.request.CreateRoomRequest;
 import com.example.quizweb.dto.request.JoinRoomRequest;
+import com.example.quizweb.dto.request.SubmitAnswerRequest;
 import com.example.quizweb.dto.response.*;
 import com.example.quizweb.service.GameRoomService;
 import jakarta.validation.Valid;
@@ -64,5 +65,22 @@ public class GameRoomController {
     public ApiResponse<CurrentQuestionResponse> getCurrentQuestion(@PathVariable Long roomId) {
         CurrentQuestionResponse response = gameRoomService.getCurrentQuestion(roomId);
         return ApiResponse.success(response, "Current question fetched");
+    }
+
+    @PostMapping("/{roomId}/submit-answer")
+    public ApiResponse<SubmitAnswerResponse> submitAnswer(
+            @PathVariable Long roomId,
+            @Valid @RequestBody SubmitAnswerRequest request) {
+
+        SubmitAnswerResponse response = gameRoomService.submitAnswer(roomId, request);
+        return ApiResponse.success(response, "Answer submitted");
+    }
+
+    @GetMapping("/{roomId}/leaderboard")
+    public ApiResponse<List<LeaderboardEntryResponse>> getLeaderboard(@PathVariable Long roomId) {
+        List<LeaderboardEntryResponse> response = gameRoomService.getLeaderboard(roomId);
+
+        // Trả về response kèm message chuẩn theo tài liệu
+        return ApiResponse.success(response, "Leaderboard fetched");
     }
 }

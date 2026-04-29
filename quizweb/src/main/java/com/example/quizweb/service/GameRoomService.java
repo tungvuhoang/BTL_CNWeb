@@ -2,11 +2,13 @@ package com.example.quizweb.service;
 
 import com.example.quizweb.dto.request.CreateRoomRequest;
 import com.example.quizweb.dto.request.JoinRoomRequest;
+import com.example.quizweb.dto.request.SubmitAnswerRequest;
 import com.example.quizweb.dto.response.*;
 import com.example.quizweb.entity.*;
 import com.example.quizweb.exception.ApiException;
 import com.example.quizweb.exception.ErrorCode;
 import com.example.quizweb.repository.GameRoomRepository;
+import com.example.quizweb.repository.PlayerAnswerRepository;
 import com.example.quizweb.repository.PlayerRepository;
 import com.example.quizweb.repository.QuizRepository;
 import com.example.quizweb.websocket.GameEventPublisher;
@@ -14,6 +16,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.example.quizweb.dto.response.SubmitAnswerResponse;
+import com.example.quizweb.dto.response.LeaderboardEntryResponse;
+import com.example.quizweb.entity.PlayerAnswer;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -28,6 +33,7 @@ public class GameRoomService {
     private final QuizRepository quizRepository;
     private final PlayerRepository playerRepository;
     private final GameEventPublisher gameEventPublisher;
+    private final PlayerAnswerRepository playerAnswerRepository;
 
     @Transactional
     public RoomResponse createRoom(CreateRoomRequest request) {
@@ -301,5 +307,103 @@ public class GameRoomService {
                 .questionNumber(currentIndex + 1)
                 .totalQuestions(questions.size())
                 .build();
+    }
+
+    @Transactional
+    public SubmitAnswerResponse submitAnswer(Long roomId, SubmitAnswerRequest request) {
+        // 1. Validate Room & Status: Phòng phải đang ở trạng thái PLAYING
+        GameRoom room = gameRoomRepository.findById(roomId)
+                .orElseThrow(() -> new ApiException(ErrorCode.ROOM_NOT_FOUND, "Room not found"));
+
+        if (room.getStatus() != RoomStatus.PLAYING) {
+            throw new ApiException(ErrorCode.ROOM_NOT_PLAYING, "Room is not playing");
+        }
+
+        // 2. Validate Player: Player phải tồn tại và thuộc về phòng này
+        Player player = playerRepository.findById(request.getPlayerId())
+                .orElseThrow(() -> new ApiException(ErrorCode.PLAYER_NOT_FOUND, "Player not found"));
+
+        if (!player.getRoom().getId().equals(roomId)) {
+            throw new ApiException(ErrorCode.PLAYER_NOT_IN_ROOM, "Player does not belong to this room");
+        }
+
+        // 3. Validate Question: ID câu hỏi gửi lên phải khớp với câu hỏi hiện tại của phòng
+        List<Question> questions = room.getQuiz().getQuestions();
+        int currentIndex = room.getCurrentQuestionIndex();
+        Question currentQuestion = questions.get(currentIndex);
+
+        if (!currentQuestion.getId().equals(request.getQuestionId())) {
+            throw new ApiException(ErrorCode.QUESTION_NOT_CURRENT, "Question is not the current active question");
+        }
+
+        // 4. Validate Duplicate: Mỗi player chỉ được nộp 1 lần cho 1 câu
+        boolean alreadySubmitted = playerAnswerRepository.existsByRoomIdAndPlayerIdAndQuestionId(
+                roomId, player.getId(), currentQuestion.getId());
+        if (alreadySubmitted) {
+            throw new ApiException(ErrorCode.ANSWER_ALREADY_SUBMITTED, "You have already submitted an answer");
+        }
+
+        // 5. Validate Time: Trễ quá timeLimit thì không cho nộp nữa
+        long secondsElapsed = Duration.between(room.getQuestionStartedAt(), LocalDateTime.now()).getSeconds();
+        if (secondsElapsed > currentQuestion.getTimeLimit()) {
+            throw new ApiException(ErrorCode.QUESTION_TIME_EXPIRED, "Time expired for this question");
+        }
+
+        // 6. Logic chấm điểm: Đúng = +100, Sai = 0
+        // Vì cả 2 đều dùng chung Enum AnswerOption nên có thể so sánh name() hoặc value
+        boolean isCorrect = currentQuestion.getCorrectAnswer().name().equals(request.getSelectedAnswer().name());
+        int pointsEarned = isCorrect ? 100 : 0;
+
+        // 7. Lưu lịch sử trả lời vào bảng player_answers
+        PlayerAnswer playerAnswer = PlayerAnswer.builder()
+                .room(room)
+                .player(player)
+                .question(currentQuestion)
+                .selectedAnswer(AnswerOption.valueOf(request.getSelectedAnswer().name())) // Lưu dưới dạng chuỗi A/B/C/D
+                .isCorrect(isCorrect)
+                .pointsEarned(pointsEarned)
+                .answeredAt(LocalDateTime.now())
+                .build();
+        playerAnswerRepository.save(playerAnswer);
+
+        // 8. Cập nhật tổng điểm của người chơi
+        player.setScore(player.getScore() + pointsEarned);
+        playerRepository.save(player); // Do đang trong @Transactional nên có thể không cần save, nhưng viết cho rõ ràng.
+
+        // 9. Tính toán lại Bảng xếp hạng (Leaderboard) & Broadcast qua WebSocket
+        List<LeaderboardEntryResponse> leaderboard = room.getPlayers().stream()
+                .sorted((p1, p2) -> p2.getScore().compareTo(p1.getScore())) // Sắp xếp điểm giảm dần
+                .map(p -> LeaderboardEntryResponse.builder()
+                        .playerId(p.getId())
+                        .name(p.getName())
+                        .score(p.getScore())
+                        .build())
+                .toList();
+
+        gameEventPublisher.publishLeaderboardUpdated(roomId, leaderboard);
+
+        // 10. Trả về kết quả ngay lập tức cho chính API Request này
+        return SubmitAnswerResponse.builder()
+                .isCorrect(isCorrect)
+                .pointsEarned(pointsEarned)
+                .totalScore(player.getScore())
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public List<LeaderboardEntryResponse> getLeaderboard(Long roomId) {
+        // 1. Tìm phòng
+        GameRoom room = gameRoomRepository.findById(roomId)
+                .orElseThrow(() -> new ApiException(ErrorCode.ROOM_NOT_FOUND, "Room not found"));
+
+        // 2. Lấy danh sách người chơi, sắp xếp giảm dần và map sang DTO
+        return room.getPlayers().stream()
+                .sorted((p1, p2) -> p2.getScore().compareTo(p1.getScore())) // Sắp xếp score giảm dần
+                .map(p -> LeaderboardEntryResponse.builder()
+                        .playerId(p.getId())
+                        .name(p.getName())
+                        .score(p.getScore())
+                        .build())
+                .toList();
     }
 }
