@@ -1,0 +1,83 @@
+/* Container */
+.container {
+  background-color: #ffffff;
+  border-radius: 1rem;
+  box-shadow: var(--shadow-xl);
+  padding: 1.5rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+@media (min-width: 640px) {
+  .container {
+    padding: 2rem;
+  }
+}
+.title {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: var(--gray-900);
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+@media (min-width: 640px) {
+  .title {
+    font-size: 2.25rem;
+  }
+}
+
+/* Button */
+.buttonBase {
+  font-weight: 600;
+  border-radius: 0.5rem;
+  transition: all 0.2s;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+.buttonBase:active {
+  transform: scale(0.95);
+}
+.buttonBase:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.variantPrimary { background-color: var(--primary); color: white; box-shadow: var(--shadow-lg); }
+.variantPrimary:hover:not(:disabled) { background-color: var(--primary-hover); box-shadow: var(--shadow-xl); }
+.variantSecondary { background-color: var(--gray-200); color: var(--gray-900); }
+.variantSecondary:hover:not(:disabled) { background-color: var(--gray-300); }
+.variantDanger { background-color: var(--danger); color: white; }
+.variantDanger:hover:not(:disabled) { background-color: var(--danger-hover); }
+.variantSuccess { background-color: var(--success); color: white; }
+.variantSuccess:hover:not(:disabled) { background-color: var(--success-hover); }
+
+.sizeSm { padding: 0.5rem 0.75rem; font-size: 0.875rem; }
+.sizeMd { padding: 0.75rem 1.5rem; font-size: 1rem; }
+.sizeLg { padding: 1rem 2rem; font-size: 1.125rem; }
+.sizeXl { padding: 1.25rem 2.5rem; font-size: 1.25rem; width: 100%; }
+
+/* Input */
+.inputField {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-size: 1.125rem;
+  border-radius: 0.5rem;
+  border: 2px solid var(--gray-300);
+  transition: border-color 0.2s;
+  color: var(--gray-900);
+  background-color: #fff;
+  box-sizing: border-box;
+}
+.inputField:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+.inputField:disabled {
+  background-color: var(--gray-100);
+  color: var(--gray-500);
+  cursor: not-allowed;
+}
