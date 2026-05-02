@@ -34,10 +34,29 @@ const LoginPage = () => {
     setServerError('');
     try {
       const res = await loginApi(form);
-      login(res.data.token, res.data.username);
+      console.log("LOGIN RESPONSE:", res);
+
+      const token =
+        res?.data?.token ||
+        res?.data?.accessToken ||
+        res?.token ||
+        res?.accessToken;
+
+      const username =
+        res?.data?.username ||
+        res?.data?.user?.username ||
+        res?.username ||
+        form.username;
+
+      if (!token) {
+        setServerError("Không lấy được token từ response login");
+        return;
+      }
+
+      login(token, username);
       navigate(ROUTES.HOST_QUIZZES, { replace: true });
     } catch (err) {
-      setServerError(err.message || 'Đăng nhập thất bại');
+      setServerError(err.message || "Đăng nhập thất bại");
     } finally {
       setLoading(false);
     }
