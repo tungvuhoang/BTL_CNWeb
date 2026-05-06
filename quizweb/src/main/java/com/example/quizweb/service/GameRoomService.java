@@ -176,9 +176,9 @@ public class GameRoomService {
         }
 
         // 3. Validate trạng thái phòng (chỉ được start khi đang WAITING)
-//        if (room.getStatus() != RoomStatus.WAITING) {
-//            throw new ApiException(ErrorCode.ROOM_ALREADY_STARTED, "Room has already started or finished");
-//        }
+        if (room.getStatus() != RoomStatus.WAITING) {
+            throw new ApiException(ErrorCode.ROOM_ALREADY_STARTED, "Room has already started or finished");
+        }
 
         // 4. Validate quiz phải có ít nhất 1 câu hỏi
         List<Question> questions = room.getQuiz().getQuestions();
