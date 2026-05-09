@@ -21,8 +21,12 @@ axiosClient.interceptors.response.use(
   (response) => response.data,
   (error) => {
     if (error.response?.status === 401) {
-      removeToken();
-      window.location.href = ROUTES.LOGIN;
+      console.warn('API returned 401 Unauthorized:', error.config?.url);
+      // Tạm thời tắt auto-redirect để bạn có thể test UI và WebSocket
+      // removeToken();
+      // if (error.config && !error.config.url.includes('/auth/login')) {
+      //   window.location.href = ROUTES.LOGIN;
+      // }
     }
     return Promise.reject(error.response?.data || error);
   }
