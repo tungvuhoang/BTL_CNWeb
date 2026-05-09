@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button, message, Modal } from 'antd';
 import { UserOutlined, LockOutlined, UnlockOutlined, SettingOutlined } from '@ant-design/icons';
@@ -8,42 +8,8 @@ import GameHeader from '../../components/host/GameHeader';
 import QuestionCard from '../../components/host/QuestionCard';
 import AnswerGrid from '../../components/host/AnswerGrid';
 import GameLeaderboard from '../../components/host/GameLeaderboard';
+import { useSocket } from '../../hooks/useSocket';
 import './HostRoom.css';
-
-const DUMMY_PLAYERS = [
-  { id: 1, name: 'Tùng Vũ' },
-  { id: 2, name: 'Hải Nguyễn' },
-  { id: 3, name: 'Trang Phạm' },
-  { id: 4, name: 'Long Đỗ' },
-  { id: 5, name: 'Quang Lê' },
-];
-
-const MOCK_QUESTIONS = [
-  {
-    id: 1,
-    text: "Thủ đô của Việt Nam là gì?",
-    answers: [
-      { id: 'A', text: 'Hồ Chí Minh' },
-      { id: 'B', text: 'Đà Nẵng' },
-      { id: 'C', text: 'Hà Nội' },
-      { id: 'D', text: 'Huế' }
-    ],
-    duration: 15
-  },
-  {
-    id: 2,
-    text: "Đỉnh núi cao nhất Việt Nam?",
-    answers: [
-      { id: 'A', text: 'Fansipan' },
-      { id: 'B', text: 'Ngọc Linh' },
-      { id: 'C', text: 'Bạch Mã' },
-      { id: 'D', text: 'Langbiang' }
-    ],
-    duration: 10
-  }
-];
-
-const INITIAL_LEADERBOARD = DUMMY_PLAYERS.map(p => ({ ...p, score: 0 }));
 
 const HostRoomPage = () => {
   const { roomId } = useParams();
@@ -56,37 +22,64 @@ const HostRoomPage = () => {
   const [players, setPlayers] = useState([]);
   const [isLocked, setIsLocked] = useState(false);
 
-  // Game State
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [questions] = useState(MOCK_QUESTIONS);
+  // Game State driven purely by WebSocket
+  const [currentQuestion, setCurrentQuestion] = useState(null);
+  const [currentQuestionNumber, setCurrentQuestionNumber] = useState(1);
+  const [totalQuestions, setTotalQuestions] = useState(0);
   const [timeLeft, setTimeLeft] = useState(0);
-  const [startTime, setStartTime] = useState(0);
-  const [leaderboard, setLeaderboard] = useState(INITIAL_LEADERBOARD);
+  const [leaderboard, setLeaderboard] = useState([]);
 
-  const currentQuestion = questions[currentQuestionIndex];
-  const totalQuestions = questions.length;
+  // Socket setup
+  const { isConnected } = useSocket(roomId, (_, message) => {
+    const { type, payload } = message;
+
+    switch (type) {
+      case 'PLAYER_JOINED':
+        if (payload && payload.id) {
+          setPlayers(prev => {
+            if (!prev.find(p => p.id === payload.id)) {
+              return [...prev, payload];
+            }
+            return prev;
+          });
+        }
+        break;
+      case 'GAME_STARTED':
+        setStatus('playing');
+        break;
+      case 'QUESTION_CHANGED':
+        setCurrentQuestion({
+          text: payload.content,
+          answers: [
+            { id: 'A', text: payload.answerA },
+            { id: 'B', text: payload.answerB },
+            { id: 'C', text: payload.answerC },
+            { id: 'D', text: payload.answerD }
+          ],
+          duration: payload.timeLimit
+        });
+        setTimeLeft(payload.timeLimit || 0);
+        break;
+      case 'LEADERBOARD_UPDATED':
+        setLeaderboard(payload);
+        break;
+      case 'GAME_ENDED':
+        setStatus('finished');
+        break;
+      default:
+        // Ignore any other event types exactly as requested
+        break;
+    }
+  });
 
   useEffect(() => {
     fetchRoom();
-    
-    // Simulate players joining one by one for demo purposes
-    const interval = setInterval(() => {
-      setPlayers(prev => {
-        if (prev.length < DUMMY_PLAYERS.length) {
-          return [...prev, DUMMY_PLAYERS[prev.length]];
-        }
-        clearInterval(interval);
-        return prev;
-      });
-    }, 1500);
-
-    return () => clearInterval(interval);
   }, [roomId]);
 
   const fetchRoom = async () => {
     try {
       const res = await getRoomById(roomId).catch(() => ({ 
-        data: { id: roomId, pin: Math.floor(100000 + Math.random() * 900000).toString(), title: 'Sample Quiz' } 
+        data: { id: roomId, pin: Math.floor(100000 + Math.random() * 900000).toString(), title: 'Phòng Quiz' } 
       }));
       setRoom(res.data);
     } catch {
@@ -96,60 +89,17 @@ const HostRoomPage = () => {
     }
   };
 
-  const handleNextQuestion = useCallback(() => {
-    if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex(prev => prev + 1);
-      setStartTime(Date.now());
-      setTimeLeft(questions[currentQuestionIndex + 1].duration);
-    } else {
-      setStatus('finished');
-      message.info('Trò chơi kết thúc');
+  const handleStartGame = async () => {
+    // Triggers backend to start game, UI will react to GAME_STARTED socket event
+    try {
+      await updateRoomStatus(roomId, 'playing');
+    } catch (error) {
+      // Ignore if api is not fully implemented, but avoid local mock state mutation
     }
-  }, [currentQuestionIndex, questions]);
+  };
 
-  // Timer Logic
-  useEffect(() => {
-    if (status !== 'playing' || !currentQuestion) return;
-    
-    const timer = setInterval(() => {
-      const elapsed = Math.floor((Date.now() - startTime) / 1000);
-      const newTimeLeft = currentQuestion.duration - elapsed;
-      
-      if (newTimeLeft <= 0) {
-        setTimeLeft(0);
-        clearInterval(timer);
-        handleNextQuestion();
-      } else {
-        setTimeLeft(newTimeLeft);
-      }
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [status, startTime, currentQuestion, handleNextQuestion]);
-
-  // Leaderboard Mock Update (Fake Realtime)
-  useEffect(() => {
-    if (status !== 'playing') return;
-    
-    const lbTimer = setInterval(() => {
-      setLeaderboard(prev => {
-        const updated = prev.map(p => ({
-          ...p,
-          score: p.score + Math.floor(Math.random() * 50)
-        }));
-        return updated.sort((a, b) => b.score - a.score);
-      });
-    }, 2500);
-
-    return () => clearInterval(lbTimer);
-  }, [status]);
-
-  const handleStartGame = () => {
-    setStatus('playing');
-    setCurrentQuestionIndex(0);
-    setStartTime(Date.now());
-    setTimeLeft(questions[0].duration);
-    message.success('Bắt đầu game!');
+  const handleNextQuestion = () => {
+    // Should call API to next question, UI will react to QUESTION_CHANGED
   };
 
   const handleEndGame = () => {
@@ -159,9 +109,12 @@ const HostRoomPage = () => {
       okText: 'Kết thúc',
       cancelText: 'Huỷ',
       okButtonProps: { danger: true },
-      onOk: () => {
-        setStatus('finished');
-        message.success('Game đã kết thúc');
+      onOk: async () => {
+        try {
+          await updateRoomStatus(roomId, 'finished');
+        } catch (error) {
+          // Ignore error, but do not mutate local state
+        }
       }
     });
   };
@@ -205,8 +158,8 @@ const HostRoomPage = () => {
           ) : (
             <div className="host-room-players-grid">
               {players.map((p, i) => (
-                <div key={p.id} className="host-room-player-badge" style={{ animationDelay: `${i * 0.1}s` }}>
-                  {p.name}
+                <div key={p.id || i} className="host-room-player-badge" style={{ animationDelay: `${(i % 10) * 0.1}s` }}>
+                  {p.name || 'Anonymous'}
                 </div>
               ))}
             </div>
@@ -214,8 +167,8 @@ const HostRoomPage = () => {
         </div>
 
         <div className="host-room-bottombar">
-          <button className="btn-start-game" onClick={handleStartGame}>
-            Start Game
+          <button className="btn-start-game" onClick={handleStartGame} disabled={!isConnected}>
+            Start Game {isConnected ? '' : '(Connecting...)'}
           </button>
         </div>
       </div>
@@ -242,16 +195,22 @@ const HostRoomPage = () => {
   return (
     <div className="host-room-layout host-room-layout--playing">
       <GameHeader 
-        currentQuestionNumber={currentQuestionIndex + 1}
-        totalQuestions={totalQuestions}
+        currentQuestionNumber={currentQuestionNumber}
+        totalQuestions={totalQuestions || currentQuestionNumber}
         timeLeft={timeLeft}
-        duration={currentQuestion.duration}
+        duration={currentQuestion?.duration || timeLeft}
       />
       
       <div className="host-game-container">
         <div className="host-game-main">
-          <QuestionCard content={currentQuestion.text} />
-          <AnswerGrid answers={currentQuestion.answers} />
+          {currentQuestion ? (
+            <>
+              <QuestionCard content={currentQuestion.text} />
+              <AnswerGrid answers={currentQuestion.answers || []} />
+            </>
+          ) : (
+            <div style={{ color: 'white', textAlign: 'center', marginTop: '50px' }}>Đang tải câu hỏi...</div>
+          )}
         </div>
         
         <div className="host-game-sidebar">
