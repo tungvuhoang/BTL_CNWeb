@@ -10,7 +10,7 @@ const answerColors = {
   D: '#26890c',
 };
 
-const PlayerGameScreen = ({ roomId }) => {
+const PlayerGameScreen = ({ roomId, liveLeaderboard  }) => {
   const [question, setQuestion] = useState(null);
   const [selectedAnswer, setSelectedAnswer] = useState('');
   const [submitted, setSubmitted] = useState(false);
@@ -222,7 +222,11 @@ const PlayerGameScreen = ({ roomId }) => {
           }}
         >
           <div style={{ maxWidth: 720, margin: '0 auto' }}>
-            <LeaderboardPanel roomId={roomId} latestResult={result} />
+            <LeaderboardPanel
+              roomId={roomId}
+              latestResult={result}
+              liveLeaderboard={liveLeaderboard}
+            />
 
             <button
               onClick={() => setShowLeaderboard(false)}

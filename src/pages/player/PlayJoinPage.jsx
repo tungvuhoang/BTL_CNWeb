@@ -29,15 +29,15 @@ const PlayJoinPage = () => {
       name: name.trim(),
     });
 
-    // lưu full info player
+    const data = res.data || res;
+
     playerStorage.save({
-      roomId: res.roomId,
-      playerId: res.playerId,
-      name: name.trim(),
+      roomId: data.roomId,
+      playerId: data.playerId,
+      name: data.name || name.trim(),
     });
 
-    navigate(`/play/room/${res.roomId}`);
-
+    navigate(`/play/room/${data.roomId}`);
   } catch (err) {
     console.error(err);
     setErrors({

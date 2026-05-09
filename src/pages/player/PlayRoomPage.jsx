@@ -3,23 +3,15 @@ import { useParams } from 'react-router-dom';
 import { playerApi } from '../../api/playerApi';
 import { playerStorage } from '../../utils/playerStorage';
 import PlayerGameScreen from './PlayerGameScreen';
+import GameEndedScreen from './GameEndedScreen';
+import { createPlayerSocket } from '../../api/playerSocket';
 
 const PlayRoomPage = () => {
   const { roomId } = useParams();
-
+  const [liveLeaderboard, setLiveLeaderboard] = useState(null);
   const [player, setPlayer] = useState(null);
   const [room, setRoom] = useState(null);
   const [error, setError] = useState('');
-
-  useEffect(() => {
-    const savedPlayer = playerStorage.get();
-    setPlayer(savedPlayer);
-
-    fetchRoomState();
-
-    const interval = setInterval(fetchRoomState, 3000);
-    return () => clearInterval(interval);
-  }, [roomId]);
 
   const fetchRoomState = async () => {
     try {
@@ -34,19 +26,71 @@ const PlayRoomPage = () => {
     }
   };
 
+  useEffect(() => {
+    const savedPlayer = playerStorage.get();
+
+    if (!savedPlayer) {
+      setError('Player session not found');
+      return;
+    }
+    
+    setPlayer(savedPlayer);
+
+    fetchRoomState();
+
+    const socket = createPlayerSocket({
+      roomId,
+
+      onRoomUpdate: (event) => {
+        if (event.type === 'GAME_STARTED') {
+          fetchRoomState();
+        }
+
+        if (event.type === 'GAME_ENDED') {
+          fetchRoomState();
+        }
+      },
+
+      onQuestionUpdate: () => {
+        fetchRoomState();
+      },
+
+      onPlayerJoined: () => {
+        fetchRoomState();
+      },
+
+      onLeaderboardUpdate: () => {
+        setLiveLeaderboard(event.payload || []);
+      },
+    });
+
+    return () => {
+      socket.deactivate();
+    };
+  }, [roomId]);
+
   if (error) {
     return (
       <div style={{ color: 'white', textAlign: 'center' }}>
-        <h1 style={{color: '#fff'}}>Room {roomId}</h1>
+        <h1 style={{ color: '#fff' }}>Room {roomId}</h1>
         <p>{error}</p>
       </div>
     );
   }
 
-  if (room?.status?.toLowerCase() === 'playing') {
-    return <PlayerGameScreen roomId={roomId} />;
+  if (room?.status?.toLowerCase() === 'finished') {
+    return <GameEndedScreen roomId={roomId} />;
   }
-  
+
+  if (room?.status?.toLowerCase() === 'playing') {
+    return (
+      <PlayerGameScreen
+        roomId={roomId}
+        liveLeaderboard={liveLeaderboard}
+      />
+    );
+  }
+
   return (
     <div
       style={{
@@ -56,7 +100,9 @@ const PlayRoomPage = () => {
         textAlign: 'center',
       }}
     >
-      <h1 style={{ fontSize: 40, marginBottom: 8, color: '#fff'}}>Room {roomId}</h1>
+      <h1 style={{ fontSize: 40, marginBottom: 8, color: '#fff' }}>
+        Room {roomId}
+      </h1>
 
       <p style={{ fontSize: 20, marginBottom: 24 }}>
         Welcome, <b>{player?.playerName || 'Player'}</b>
@@ -89,19 +135,13 @@ const PlayRoomPage = () => {
             </p>
 
             <p style={{ marginTop: 8, opacity: 0.8 }}>
-              This page will update automatically.
+              This page updates automatically.
             </p>
           </>
         ) : (
           <p>Loading room...</p>
         )}
       </div>
-
-      {/* TODO WebSocket:
-          subscribe /topic/rooms/{roomId}
-          subscribe /topic/rooms/{roomId}/question
-          subscribe /topic/rooms/{roomId}/leaderboard
-      */}
     </div>
   );
 };

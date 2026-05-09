@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { playerApi } from '../../api/playerApi';
 import { playerStorage } from '../../utils/playerStorage';
 
-const LeaderboardPanel = ({ roomId, latestResult }) => {
+const LeaderboardPanel = ({ roomId, latestResult, liveLeaderboard }) => {
   const [leaderboard, setLeaderboard] = useState([]);
   const [animatedPlayerId, setAnimatedPlayerId] = useState(null);
 
@@ -10,8 +10,13 @@ const LeaderboardPanel = ({ roomId, latestResult }) => {
   const currentPlayerId = Number(player.playerId);
 
   useEffect(() => {
+    if (liveLeaderboard && liveLeaderboard.length > 0) {
+      setLeaderboard(liveLeaderboard);
+      return;
+    }
+
     fetchLeaderboard();
-  }, [roomId, latestResult]);
+  }, [roomId, liveLeaderboard]);
 
   useEffect(() => {
     if (!latestResult) return;
@@ -29,7 +34,6 @@ const LeaderboardPanel = ({ roomId, latestResult }) => {
     try {
       const res = await playerApi.getLeaderboard(roomId);
       const data = res.data || res;
-
       setLeaderboard(data);
     } catch (err) {
       console.error(err);
@@ -54,11 +58,8 @@ const LeaderboardPanel = ({ roomId, latestResult }) => {
         <p style={{ textAlign: 'center', color: 'white' }}>No scores yet</p>
       ) : (
         leaderboard.map((item, index) => {
-          const isCurrentPlayer =
-            Number(item.playerId) === currentPlayerId;
-
-          const shouldAnimate =
-            Number(item.playerId) === animatedPlayerId;
+          const isCurrentPlayer = Number(item.playerId) === currentPlayerId;
+          const shouldAnimate = Number(item.playerId) === animatedPlayerId;
 
           return (
             <div
