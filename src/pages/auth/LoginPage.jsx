@@ -34,7 +34,14 @@ const LoginPage = () => {
     setServerError('');
     try {
       const res = await loginApi(form);
-      login(res.data.token, res.data.username);
+      const token = res.data?.token || res.token;
+      const username = res.data?.username || res.username || form.username;
+      
+      if (!token) {
+        throw new Error('Không nhận được token từ server');
+      }
+      
+      login(token, username);
       navigate(ROUTES.HOST_QUIZZES, { replace: true });
     } catch (err) {
       setServerError(err.message || 'Đăng nhập thất bại');
