@@ -13,6 +13,8 @@ import com.example.quizweb.repository.QuizRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.example.quizweb.dto.response.QuestionResponse;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -99,5 +101,25 @@ public class QuestionService {
         }
 
         return new ApiException(ErrorCode.QUIZ_FORBIDDEN, "You do not have permission to access this question");
+    }
+
+    public List<QuestionResponse> getQuestionsByQuizId(Long quizId) {
+        return questionRepository.findByQuiz_Id(quizId)
+                .stream()
+                .map(this::toQuestionResponse)
+                .toList();
+    }
+
+    private QuestionResponse toQuestionResponse(Question question) {
+        return QuestionResponse.builder()
+                .questionId(question.getId())
+                .content(question.getContent())
+                .answerA(question.getAnswerA())
+                .answerB(question.getAnswerB())
+                .answerC(question.getAnswerC())
+                .answerD(question.getAnswerD())
+                .correctAnswer(question.getCorrectAnswer().name())
+                .timeLimit(question.getTimeLimit())
+                .build();
     }
 }

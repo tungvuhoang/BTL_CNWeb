@@ -1,5 +1,7 @@
 package com.example.quizweb.controller;
 
+import com.example.quizweb.dto.response.QuestionResponse;
+import java.util.List;
 import com.example.quizweb.common.ApiResponse;
 import com.example.quizweb.dto.request.CreateQuestionRequest;
 import com.example.quizweb.dto.request.UpdateQuestionRequest;
@@ -26,6 +28,13 @@ public class QuestionController {
                 questionService.addQuestion(quizId, authentication.getName(), request),
                 "Question added"
         );
+    }
+
+    @GetMapping("/api/quizzes/{quizId}/questions")
+    public ApiResponse<List<QuestionResponse>> getQuestionsByQuizId(
+            @PathVariable Long quizId
+    ) {
+        return ApiResponse.success(questionService.getQuestionsByQuizId(quizId));
     }
 
     @PutMapping("/api/questions/{questionId}")

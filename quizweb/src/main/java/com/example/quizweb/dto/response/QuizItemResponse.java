@@ -10,5 +10,6 @@ import java.time.LocalDateTime;
 public class QuizItemResponse {
     private Long quizId;
     private String title;
+    private Integer questionCount;
     private LocalDateTime createdAt;
 }

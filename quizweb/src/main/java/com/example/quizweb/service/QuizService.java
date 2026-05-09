@@ -11,6 +11,7 @@ import com.example.quizweb.entity.Quiz;
 import com.example.quizweb.entity.User;
 import com.example.quizweb.exception.ApiException;
 import com.example.quizweb.exception.ErrorCode;
+import com.example.quizweb.repository.GameRoomRepository;
 import com.example.quizweb.repository.QuizRepository;
 import com.example.quizweb.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ public class QuizService {
 
     private final QuizRepository quizRepository;
     private final UserRepository userRepository;
+    private final GameRoomRepository gameRoomRepository;
 
     @Transactional
     public CreateQuizResponse createQuiz(String username, CreateQuizRequest request) {
@@ -55,6 +57,11 @@ public class QuizService {
                 .map(quiz -> QuizItemResponse.builder()
                         .quizId(quiz.getId())
                         .title(quiz.getTitle())
+                        .questionCount(
+                                quiz.getQuestions() == null
+                                        ? 0
+                                        : quiz.getQuestions().size()
+                        )
                         .createdAt(quiz.getCreatedAt())
                         .build())
                 .toList();
@@ -89,7 +96,12 @@ public class QuizService {
     @Transactional
     public void deleteQuiz(Long quizId, String username) {
         Quiz quiz = quizRepository.findByIdAndHostUsername(quizId, username)
-                .orElseThrow(() -> buildQuizNotFoundOrForbidden(quizId, username));
+                .orElseThrow(() -> new ApiException(
+                        ErrorCode.QUIZ_NOT_FOUND,
+                        "Quiz not found or forbidden"
+                ));
+
+        gameRoomRepository.deleteByQuizId(quizId);
 
         quizRepository.delete(quiz);
     }

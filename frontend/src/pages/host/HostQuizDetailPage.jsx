@@ -13,7 +13,12 @@ import {
   NumberOutlined,
 } from '@ant-design/icons';
 import { getQuizById, updateQuiz, deleteQuiz } from '../../api/quizApi';
-import { getQuestionsByQuizId, createQuestion, updateQuestion, deleteQuestion } from '../../api/questionApi';
+import {
+  getQuestionsByQuizId,
+  createQuestion,
+  updateQuestion,
+  deleteQuestion,
+} from '../../api/questionApi';
 import { createRoom } from '../../api/roomApi';
 import { ROUTES } from '../../utils/constants';
 import QuestionList from '../../components/host/QuestionList';
@@ -25,86 +30,100 @@ const HostQuizDetailPage = () => {
   const { quizId } = useParams();
   const navigate = useNavigate();
 
-  /* ── state ─────────────────────────────────────────── */
   const [quiz, setQuiz] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // questions
   const [questions, setQuestions] = useState([]);
   const [questionsLoading, setQuestionsLoading] = useState(false);
 
-  // inline edit
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [saving, setSaving] = useState(false);
 
-  // host game
   const [hosting, setHosting] = useState(false);
 
-  // question modal
   const [questionModalOpen, setQuestionModalOpen] = useState(false);
   const [questionSaving, setQuestionSaving] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState(null);
 
-  // delete modal
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  /* ── fetch ─────────────────────────────────────────── */
-  const fetchQuiz = async () => {
-    setLoading(true);
-    try {
-      const res = await getQuizById(quizId);
-      setQuiz(res.data);
-      fetchQuestions();
-    } catch {
-      message.info('BE chưa chạy, hiển thị dữ liệu mẫu (mock data)');
-      setQuiz({
-        quizId: quizId,
-        title: 'Quiz Mẫu (Mock Data)',
-        questionCount: 2,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      });
-      fetchQuestions();
-    }
+  const normalizeQuiz = (data) => {
+    if (!data) return null;
+
+    return {
+      ...data,
+      quizId: data.quizId || data.id,
+      questionCount: data.questionCount ?? data.questions?.length ?? 0,
+    };
+  };
+
+  const normalizeQuestion = (q) => {
+    if (!q) return q;
+
+    const correctAnswer = q.correctAnswer;
+
+    return {
+      ...q,
+      questionId: q.questionId || q.id,
+      answers: q.answers || [
+        {
+          answerId: 'A',
+          content: q.answerA,
+          isCorrect: correctAnswer === 'A',
+        },
+        {
+          answerId: 'B',
+          content: q.answerB,
+          isCorrect: correctAnswer === 'B',
+        },
+        {
+          answerId: 'C',
+          content: q.answerC,
+          isCorrect: correctAnswer === 'C',
+        },
+        {
+          answerId: 'D',
+          content: q.answerD,
+          isCorrect: correctAnswer === 'D',
+        },
+      ].filter((a) => a.content),
+    };
   };
 
   const fetchQuestions = async () => {
     setQuestionsLoading(true);
+
     try {
       const res = await getQuestionsByQuizId(quizId);
-      setQuestions(res.data || []);
-    } catch {
-      // Mock questions
-      setQuestions([
-        {
-          questionId: 'q1',
-          content: 'Thủ đô của Việt Nam là gì?',
-          timeLimit: 20,
-          points: 1000,
-          answers: [
-            { answerId: 'a1', content: 'Hồ Chí Minh', isCorrect: false },
-            { answerId: 'a2', content: 'Đà Nẵng', isCorrect: false },
-            { answerId: 'a3', content: 'Hà Nội', isCorrect: true },
-            { answerId: 'a4', content: 'Huế', isCorrect: false },
-          ]
-        },
-        {
-          questionId: 'q2',
-          content: 'Đỉnh núi cao nhất Việt Nam?',
-          timeLimit: 20,
-          points: 1000,
-          answers: [
-            { answerId: 'a5', content: 'Fansipan', isCorrect: true },
-            { answerId: 'a6', content: 'Ngọc Linh', isCorrect: false },
-            { answerId: 'a7', content: 'Bạch Mã', isCorrect: false },
-            { answerId: 'a8', content: 'Langbiang', isCorrect: false },
-          ]
-        }
-      ]);
+      const list = res.data || res || [];
+
+      setQuestions(list.map(normalizeQuestion));
+    } catch (err) {
+      console.log(err);
+      message.error('Không thể tải danh sách câu hỏi');
+      setQuestions([]);
     } finally {
       setQuestionsLoading(false);
+    }
+  };
+
+  const fetchQuiz = async () => {
+    setLoading(true);
+
+    try {
+      const res = await getQuizById(quizId);
+      const data = res.data || res;
+
+      setQuiz(normalizeQuiz(data));
+      await fetchQuestions();
+    } catch (err) {
+      console.log(err);
+      message.error('Không thể tải quiz');
+      setQuiz(null);
+      setQuestions([]);
+    } finally {
       setLoading(false);
     }
   };
@@ -113,7 +132,6 @@ const HostQuizDetailPage = () => {
     fetchQuiz();
   }, [quizId]);
 
-  /* ── handlers ──────────────────────────────────────── */
   const startEdit = () => {
     setEditTitle(quiz?.title ?? '');
     setEditing(true);
@@ -129,13 +147,22 @@ const HostQuizDetailPage = () => {
       message.warning('Tiêu đề không được để trống');
       return;
     }
+
     setSaving(true);
+
     try {
       await updateQuiz(quizId, { title: editTitle.trim() });
+
       message.success('Đã cập nhật tiêu đề');
-      setQuiz((prev) => ({ ...prev, title: editTitle.trim() }));
+
+      setQuiz((prev) => ({
+        ...prev,
+        title: editTitle.trim(),
+      }));
+
       setEditing(false);
-    } catch {
+    } catch (err) {
+      console.log(err);
       message.error('Cập nhật thất bại');
     } finally {
       setSaving(false);
@@ -144,11 +171,14 @@ const HostQuizDetailPage = () => {
 
   const handleDelete = async () => {
     setDeleting(true);
+
     try {
       await deleteQuiz(quizId);
+
       message.success('Đã xoá quiz');
       navigate(ROUTES.HOST_QUIZZES);
-    } catch {
+    } catch (err) {
+      console.log(err);
       message.error('Xoá quiz thất bại');
     } finally {
       setDeleting(false);
@@ -157,65 +187,137 @@ const HostQuizDetailPage = () => {
 
   const handleHostGame = async () => {
     setHosting(true);
+
     try {
-      const res = await createRoom(quizId);
-      // Giả sử API trả về { roomId: '...', pin: '...' }
-      const roomId = res.data?.roomId || res.data?.id;
-      if (roomId) {
-        navigate(ROUTES.HOST_ROOM.replace(':roomId', roomId));
-      } else {
-        message.error('Không thể tạo phòng, dữ liệu trả về không hợp lệ');
+      const res = await createRoom(Number(quizId));
+      const data = res.data || res;
+
+      const newRoomId = data.roomId || data.id;
+
+      if (!newRoomId) {
+        console.log('Create room response:', res);
+        message.error('Không thể tạo phòng, thiếu roomId');
+        return;
       }
-    } catch {
+
+      navigate(ROUTES.HOST_ROOM.replace(':roomId', newRoomId));
+    } catch (err) {
+      console.log(err);
       message.error('Tạo phòng thất bại');
     } finally {
       setHosting(false);
     }
   };
 
-  /* ── question handlers ──────────────────────────────── */
   const handleOpenAddQuestion = () => {
     setEditingQuestion(null);
     setQuestionModalOpen(true);
   };
 
   const handleOpenEditQuestion = (question) => {
-    setEditingQuestion(question);
+    setEditingQuestion(normalizeQuestion(question));
     setQuestionModalOpen(true);
   };
 
-  const handleDeleteQuestion = async (questionId) => {
+  const handleDeleteQuestion = async (questionOrId) => {
+    const questionId =
+      typeof questionOrId === 'object'
+        ? questionOrId.questionId || questionOrId.id
+        : questionOrId;
+
+    if (!questionId) {
+      message.error('Không tìm thấy questionId');
+      console.log('Question missing id:', questionOrId);
+      return;
+    }
+
     try {
       await deleteQuestion(questionId);
+
       message.success('Đã xoá câu hỏi');
-      fetchQuestions();
-      setQuiz(prev => ({ ...prev, questionCount: (prev.questionCount || 1) - 1 }));
-    } catch {
+
+      setQuestions((prev) =>
+        prev.filter((q) => (q.questionId || q.id) !== questionId)
+      );
+
+      setQuiz((prev) => ({
+        ...prev,
+        questionCount: Math.max((prev?.questionCount || 1) - 1, 0),
+      }));
+    } catch (err) {
+      console.log(err);
       message.error('Xoá câu hỏi thất bại');
     }
   };
 
+  const buildQuestionPayload = (questionData) => {
+    const answers = questionData.answers || [];
+
+    const correctIndex = answers.findIndex((a) => a.isCorrect);
+
+    return {
+      content: questionData.content,
+      answerA: answers[0]?.content || '',
+      answerB: answers[1]?.content || '',
+      answerC: answers[2]?.content || '',
+      answerD: answers[3]?.content || '',
+      correctAnswer: ['A', 'B', 'C', 'D'][correctIndex] || '',
+      timeLimit: Number(questionData.timeLimit || 20),
+    };
+  };
+
   const handleSaveQuestion = async (questionData) => {
     setQuestionSaving(true);
+
     try {
+      const payload = buildQuestionPayload(questionData);
+
+      if (!payload.content?.trim()) {
+        message.warning('Nội dung câu hỏi không được để trống');
+        return;
+      }
+
+      if (!payload.answerA || !payload.answerB || !payload.answerC || !payload.answerD) {
+        message.warning('Cần nhập đủ 4 đáp án A, B, C, D');
+        return;
+      }
+
+      if (!payload.correctAnswer) {
+        message.warning('Cần chọn đáp án đúng');
+        return;
+      }
+
       if (editingQuestion) {
-        await updateQuestion(editingQuestion.questionId || editingQuestion.id, questionData);
+        const id = editingQuestion.questionId || editingQuestion.id;
+
+        if (!id) {
+          message.error('Không tìm thấy questionId để cập nhật');
+          return;
+        }
+
+        await updateQuestion(id, payload);
         message.success('Cập nhật câu hỏi thành công');
       } else {
-        await createQuestion(quizId, questionData);
+        await createQuestion(quizId, payload);
         message.success('Thêm câu hỏi thành công');
-        setQuiz(prev => ({ ...prev, questionCount: (prev.questionCount || 0) + 1 }));
+
+        setQuiz((prev) => ({
+          ...prev,
+          questionCount: (prev?.questionCount || 0) + 1,
+        }));
       }
+
       setQuestionModalOpen(false);
-      fetchQuestions();
-    } catch {
-      message.error('Lưu câu hỏi thất bại');
+      setEditingQuestion(null);
+      await fetchQuestions();
+    } catch (err) {
+      console.log(err);
+      message.error(err?.message || 'Lưu câu hỏi thất bại');
     } finally {
       setQuestionSaving(false);
     }
   };
 
-  /* ── render: loading ───────────────────────────────── */
   if (loading) {
     return (
       <div
@@ -231,7 +333,6 @@ const HostQuizDetailPage = () => {
     );
   }
 
-  /* ── render: not found ─────────────────────────────── */
   if (!quiz) {
     return (
       <div className="quiz-empty">
@@ -248,11 +349,16 @@ const HostQuizDetailPage = () => {
     );
   }
 
-  /* ── render ────────────────────────────────────────── */
   return (
     <div className="quiz-detail">
-      {/* Back & Host Game */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 16,
+        }}
+      >
         <button
           className="quiz-detail__back"
           onClick={() => navigate(ROUTES.HOST_QUIZZES)}
@@ -261,19 +367,20 @@ const HostQuizDetailPage = () => {
           <ArrowLeftOutlined />
           Quay lại danh sách
         </button>
-        <Button 
-          type="primary" 
-          size="large" 
+
+        <Button
+          type="primary"
+          size="large"
           className="btn-host-game"
           onClick={handleHostGame}
           loading={hosting}
+          disabled={questions.length === 0}
           style={{ backgroundColor: '#26890c', fontWeight: 600 }}
         >
           🎮 HOST GAME
         </Button>
       </div>
 
-      {/* Hero card */}
       <div className="quiz-detail__hero">
         <div className="quiz-detail__hero-top">
           {editing ? (
@@ -287,6 +394,7 @@ const HostQuizDetailPage = () => {
                 className="quiz-detail__edit-input"
                 placeholder="Nhập tiêu đề quiz…"
               />
+
               <Button
                 type="primary"
                 icon={<SaveOutlined />}
@@ -297,6 +405,7 @@ const HostQuizDetailPage = () => {
               >
                 Lưu
               </Button>
+
               <Button
                 icon={<CloseOutlined />}
                 onClick={cancelEdit}
@@ -313,6 +422,7 @@ const HostQuizDetailPage = () => {
               <Button icon={<EditOutlined />} onClick={startEdit}>
                 Sửa tiêu đề
               </Button>
+
               <Button
                 danger
                 icon={<DeleteOutlined />}
@@ -324,7 +434,6 @@ const HostQuizDetailPage = () => {
           )}
         </div>
 
-        {/* Stats */}
         <div className="quiz-detail__stats">
           <div className="quiz-detail__stat">
             <span className="quiz-detail__stat-icon">
@@ -343,7 +452,7 @@ const HostQuizDetailPage = () => {
             <div className="quiz-detail__stat-info">
               <span className="quiz-detail__stat-label">Câu hỏi</span>
               <span className="quiz-detail__stat-value">
-                {quiz.questionCount ?? 0}
+                {questions.length}
               </span>
             </div>
           </div>
@@ -378,27 +487,32 @@ const HostQuizDetailPage = () => {
         </div>
       </div>
 
-      {/* Questions section */}
       <div className="quiz-detail__info-card">
-        <div className="quiz-detail__info-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3 className="quiz-detail__info-title">
-            📝 Danh sách câu hỏi
-          </h3>
+        <div
+          className="quiz-detail__info-header"
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
+          <h3 className="quiz-detail__info-title">📝 Danh sách câu hỏi</h3>
+
           <Button type="primary" onClick={handleOpenAddQuestion}>
             + Thêm câu hỏi
           </Button>
         </div>
+
         <div className="quiz-detail__info-body" style={{ padding: '0' }}>
-          <QuestionList 
-            questions={questions} 
-            loading={questionsLoading} 
+          <QuestionList
+            questions={questions}
+            loading={questionsLoading}
             onEdit={handleOpenEditQuestion}
             onDelete={handleDeleteQuestion}
           />
         </div>
       </div>
 
-      {/* ── Delete Modal ──────────────────────────────── */}
       <Modal
         title="Xác nhận xoá quiz"
         open={deleteOpen}
@@ -421,10 +535,12 @@ const HostQuizDetailPage = () => {
         </div>
       </Modal>
 
-      {/* ── Question Form Modal ───────────────────────── */}
-      <QuestionFormModal 
+      <QuestionFormModal
         open={questionModalOpen}
-        onCancel={() => setQuestionModalOpen(false)}
+        onCancel={() => {
+          setQuestionModalOpen(false);
+          setEditingQuestion(null);
+        }}
         onSave={handleSaveQuestion}
         initialData={editingQuestion}
         saving={questionSaving}

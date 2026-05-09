@@ -12,4 +12,6 @@ public interface GameRoomRepository extends JpaRepository<GameRoom, Long> {
 
     // Kiểm tra xem mã PIN đã tồn tại trong DB chưa (Dùng lúc generate PIN)
     boolean existsByPin(String pin);
+
+    void deleteByQuizId(Long quizId);
 }
