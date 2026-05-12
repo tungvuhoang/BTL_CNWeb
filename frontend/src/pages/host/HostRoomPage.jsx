@@ -53,9 +53,10 @@ const HostRoomPage = () => {
 
     switch (type) {
       case 'PLAYER_JOINED':
-        if (payload && payload.id) {
+        if (payload && (payload.playerId || payload.id)) {
           setPlayers(prev => {
-            if (!prev.find(p => (p.id || p.playerId) === payload.id)) {
+            const incomingId = payload.playerId || payload.id;
+            if (!prev.find(p => (p.playerId || p.id) === incomingId)) {
               return [...prev, payload];
             }
             return prev;

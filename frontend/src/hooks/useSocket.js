@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
+import { sockJsUrl } from '../config/backend';
 
 export const useSocket = (roomId, onMessageReceived) => {
     const stompClient = useRef(null);
@@ -16,7 +17,7 @@ export const useSocket = (roomId, onMessageReceived) => {
         if (!roomId) return;
 
         const client = new Client({
-            webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
+            webSocketFactory: () => new SockJS(sockJsUrl),
             reconnectDelay: 5000,
             onConnect: () => {
                 setIsConnected(true);

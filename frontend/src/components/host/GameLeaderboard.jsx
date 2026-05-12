@@ -11,7 +11,7 @@ const GameLeaderboard = ({ leaderboard, title = "Bảng xếp hạng" }) => {
       </h3>
       <div className="host-leaderboard__list">
         {topPlayers.map((player, index) => (
-          <div key={player.id} className={`host-leaderboard__item ${index === 0 ? 'top-1' : ''}`}>
+          <div key={player.playerId || player.id || index} className={`host-leaderboard__item ${index === 0 ? 'top-1' : ''}`}>
             <span className="host-leaderboard__rank">{index + 1}</span>
             <span className="host-leaderboard__name">{player.name}</span>
             <span className="host-leaderboard__score">{player.score}</span>

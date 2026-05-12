@@ -1,9 +1,10 @@
 import axios from 'axios';
 import { getToken, removeToken } from '../utils/token';
 import { ROUTES } from '../utils/constants';
+import { apiBaseUrl } from '../config/backend';
 
 const axiosClient = axios.create({
-  baseURL: 'http://localhost:8080/api',
+  baseURL: apiBaseUrl,
   headers: { 'Content-Type': 'application/json' },
   timeout: 10000,
 });
