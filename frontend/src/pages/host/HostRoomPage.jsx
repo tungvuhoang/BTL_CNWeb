@@ -155,9 +155,15 @@ const HostRoomPage = () => {
     }
   };
 
+  // Fetch 1 lần khi vào trang
   useEffect(() => {
     fetchRoom();
     fetchPlayers();
+  }, [roomId]);
+
+  // Polling fallback: chỉ chạy khi WebSocket chưa kết nối
+  useEffect(() => {
+    if (isConnected) return;
 
     const interval = setInterval(() => {
       fetchPlayers();
@@ -165,10 +171,10 @@ const HostRoomPage = () => {
       if (status === 'playing') {
         fetchLeaderboard();
       }
-    }, 2000);
+    }, 5000);
 
     return () => clearInterval(interval);
-  }, [roomId, status]);
+  }, [roomId, status, isConnected]);
 
   useEffect(() => {
     if (status !== 'playing' || !currentQuestion) return;
