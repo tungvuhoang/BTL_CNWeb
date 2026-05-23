@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LOCAL_STORAGE_KEYS } from '../../utils/constants';
 import { PlayerContainer, PlayerInput, PlayerButton } from '../../components/PlayerContainer';
 import { playerApi } from '../../api/playerApi';
 import { playerStorage } from '../../utils/playerStorage';
@@ -12,51 +11,57 @@ const PlayJoinPage = () => {
   const [errors, setErrors] = useState({});
 
   const handleSubmit = async (event) => {
-  event.preventDefault();
-  const newErrors = {};
-  
-  if (!pin.trim()) newErrors.pin = 'PIN is required';
-  if (!name.trim()) newErrors.name = 'Name is required';
-  
-  if (Object.keys(newErrors).length > 0) {
-    setErrors(newErrors);
-    return;
-  }
+    event.preventDefault();
 
-  try {
-    const res = await playerApi.joinRoom({
-      pin: pin.trim(),
-      name: name.trim(),
-    });
+    const newErrors = {};
 
-    const data = res.data || res;
+    if (!pin.trim()) newErrors.pin = 'PIN is required';
+    if (!name.trim()) newErrors.name = 'Name is required';
 
-    playerStorage.save({
-      roomId: data.roomId,
-      playerId: data.playerId,
-      name: data.name || name.trim(),
-    });
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
 
-    navigate(`/play/room/${data.roomId}`);
-  } catch (err) {
-    console.error(err);
-    setErrors({
-      pin: 'Invalid PIN or cannot join room',
-    });
-  }
-};
+    try {
+      const res = await playerApi.joinRoom({
+        pin: pin.trim(),
+        name: name.trim(),
+      });
+
+      const data = res.data || res;
+
+      playerStorage.save({
+        roomId: data.roomId,
+        playerId: data.playerId,
+        name: data.name || name.trim(),
+      });
+
+      navigate(`/play/room/${data.roomId}`);
+    } catch (err) {
+      console.error(err);
+      setErrors({
+        pin: 'Invalid PIN or cannot join room',
+      });
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+
     if (name === 'pin') setPin(value);
     if (name === 'name') setName(value);
-    setErrors(prev => ({ ...prev, [name]: '' }));
+
+    setErrors((prev) => ({ ...prev, [name]: '' }));
   };
 
   return (
     <PlayerContainer title="Join a Quiz Game">
+      <p className="text-center text-gray-600 text-lg mb-8">
+        Enter the game PIN and your name to join
+      </p>
 
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <PlayerInput
             name="pin"
@@ -67,7 +72,9 @@ const PlayJoinPage = () => {
             maxLength={6}
             autoComplete="off"
           />
-          {errors.pin && <p className="text-red-500 text-sm mt-2">{errors.pin}</p>}
+          {errors.pin && (
+            <p className="text-red-500 text-sm mt-2">{errors.pin}</p>
+          )}
         </div>
 
         <div>
@@ -80,11 +87,13 @@ const PlayJoinPage = () => {
             maxLength={20}
             autoComplete="off"
           />
-          {errors.name && <p className="text-red-500 text-sm mt-2">{errors.name}</p>}
+          {errors.name && (
+            <p className="text-red-500 text-sm mt-2">{errors.name}</p>
+          )}
         </div>
 
         <PlayerButton type="submit" size="xl" variant="primary" className="mt-8">
-          Join Game
+          🎮 Join Game
         </PlayerButton>
       </form>
     </PlayerContainer>

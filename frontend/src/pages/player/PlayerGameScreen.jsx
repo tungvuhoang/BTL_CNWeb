@@ -10,7 +10,7 @@ const answerColors = {
   D: '#26890c',
 };
 
-const PlayerGameScreen = ({ roomId, liveLeaderboard  }) => {
+const PlayerGameScreen = ({ roomId, liveLeaderboard, questionVersion }) => {
   const [question, setQuestion] = useState(null);
   const [selectedAnswer, setSelectedAnswer] = useState('');
   const [submitted, setSubmitted] = useState(false);
@@ -23,7 +23,7 @@ const PlayerGameScreen = ({ roomId, liveLeaderboard  }) => {
 
   useEffect(() => {
     fetchCurrentQuestion();
-  }, [roomId]);
+  }, [roomId, questionVersion]);
 
   useEffect(() => {
     if (timeRemaining === null || submitted || timeRemaining <= 0) return;
@@ -228,22 +228,7 @@ const PlayerGameScreen = ({ roomId, liveLeaderboard  }) => {
               liveLeaderboard={liveLeaderboard}
             />
 
-            <button
-              onClick={() => setShowLeaderboard(false)}
-              style={{
-                marginTop: 16,
-                width: '100%',
-                padding: '12px 16px',
-                borderRadius: 12,
-                border: 'none',
-                background: 'white',
-                color: '#46178f',
-                fontWeight: 800,
-                cursor: 'pointer',
-              }}
-            >
-              Continue
-            </button>
+            
           </div>
         </div>
       )}

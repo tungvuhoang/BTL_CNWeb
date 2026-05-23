@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { authApi } from '../../api/authApi';
+import { login as loginApi } from '../../api/authApi';
 import { ROUTES } from '../../utils/constants';
 import { PlayerContainer, PlayerInput, PlayerButton } from '../../components/PlayerContainer';
 import OAuthButtons from '../../components/OAuthButtons';
@@ -32,12 +32,32 @@ const LoginPage = () => {
     
     setLoading(true);
     setServerError('');
+
     try {
-      const res = await authApi.login(data);
-      login(res.data.token, res.data.username);
+      const res = await loginApi(form);
+      console.log("LOGIN RESPONSE:", res);
+
+      const token =
+        res?.data?.token ||
+        res?.data?.accessToken ||
+        res?.token ||
+        res?.accessToken;
+
+      const username =
+        res?.data?.username ||
+        res?.data?.user?.username ||
+        res?.username ||
+        form.username;
+
+      if (!token) {
+        setServerError("Không lấy được token từ response login");
+        return;
+      }
+
+      login(token, username);
       navigate(ROUTES.HOST_QUIZZES, { replace: true });
     } catch (err) {
-      setServerError(err.message || 'Đăng nhập thất bại');
+      setServerError(err.message || "Đăng nhập thất bại");
     } finally {
       setLoading(false);
     }
@@ -50,10 +70,8 @@ const LoginPage = () => {
   };
 
   const handleOAuthSuccess = (provider) => {
-    // Mock OAuth login
     console.log(`${provider} OAuth login clicked`);
     setLoading(true);
-    // Simulate OAuth flow
     setTimeout(() => {
       login('oauth-token-' + Date.now(), 'oauth_user_' + provider);
       navigate(ROUTES.HOST_QUIZZES, { replace: true });
@@ -62,14 +80,12 @@ const LoginPage = () => {
 
   return (
     <PlayerContainer title="Đăng Nhập">
-      {/* OAuth Section */}
       <OAuthButtons 
         onGoogleSuccess={() => handleOAuthSuccess('google')}
         onMicrosoftClick={() => handleOAuthSuccess('microsoft')}
         onAppleClick={() => handleOAuthSuccess('apple')}
       />
 
-      {/* Username & Password Form */}
       <form onSubmit={handleSubmit} className={styles.form}>
         <div className={styles.inputGroup}>
           <PlayerInput
@@ -110,7 +126,6 @@ const LoginPage = () => {
         </PlayerButton>
       </form>
 
-      {/* Forgot Password & Sign Up */}
       <div className={styles.footerSection}>
         <button className={styles.linkButton}>
           Quên mật khẩu?

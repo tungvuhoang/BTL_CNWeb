@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Button, Input, Modal, message, Spin } from 'antd';
 import {
   ArrowLeftOutlined,
@@ -13,35 +13,120 @@ import {
   NumberOutlined,
 } from '@ant-design/icons';
 import { getQuizById, updateQuiz, deleteQuiz } from '../../api/quizApi';
+import {
+  getQuestionsByQuizId,
+  createQuestion,
+  updateQuestion,
+  deleteQuestion,
+} from '../../api/questionApi';
+import { createRoom } from '../../api/roomApi';
 import { ROUTES } from '../../utils/constants';
+import QuestionList from '../../components/host/QuestionList';
+import QuestionFormModal from '../../components/host/QuestionFormModal';
 import dayjs from 'dayjs';
 import './HostQuizzes.css';
+
 
 const HostQuizDetailPage = () => {
   const { quizId } = useParams();
   const navigate = useNavigate();
 
-  /* ── state ─────────────────────────────────────────── */
+  const location = useLocation();
+  const displayIndex = location.state?.displayIndex;
+
   const [quiz, setQuiz] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // inline edit
+  const [questions, setQuestions] = useState([]);
+  const [questionsLoading, setQuestionsLoading] = useState(false);
+
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [saving, setSaving] = useState(false);
 
-  // delete modal
+  const [hosting, setHosting] = useState(false);
+
+  const [questionModalOpen, setQuestionModalOpen] = useState(false);
+  const [questionSaving, setQuestionSaving] = useState(false);
+  const [editingQuestion, setEditingQuestion] = useState(null);
+
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  /* ── fetch ─────────────────────────────────────────── */
+  const normalizeQuiz = (data) => {
+    if (!data) return null;
+
+    return {
+      ...data,
+      quizId: data.quizId || data.id,
+      questionCount: data.questionCount ?? data.questions?.length ?? 0,
+    };
+  };
+
+  const normalizeQuestion = (q) => {
+    if (!q) return q;
+
+    const correctAnswer = q.correctAnswer;
+
+    return {
+      ...q,
+      questionId: q.questionId || q.id,
+      answers: q.answers || [
+        {
+          answerId: 'A',
+          content: q.answerA,
+          isCorrect: correctAnswer === 'A',
+        },
+        {
+          answerId: 'B',
+          content: q.answerB,
+          isCorrect: correctAnswer === 'B',
+        },
+        {
+          answerId: 'C',
+          content: q.answerC,
+          isCorrect: correctAnswer === 'C',
+        },
+        {
+          answerId: 'D',
+          content: q.answerD,
+          isCorrect: correctAnswer === 'D',
+        },
+      ].filter((a) => a.content),
+    };
+  };
+
+  const fetchQuestions = async () => {
+    setQuestionsLoading(true);
+
+    try {
+      const res = await getQuestionsByQuizId(quizId);
+      const list = res.data || res || [];
+
+      setQuestions(list.map(normalizeQuestion));
+    } catch (err) {
+      console.log(err);
+      message.error('Không thể tải danh sách câu hỏi');
+      setQuestions([]);
+    } finally {
+      setQuestionsLoading(false);
+    }
+  };
+
   const fetchQuiz = async () => {
     setLoading(true);
+
     try {
       const res = await getQuizById(quizId);
-      setQuiz(res.data);
-    } catch {
-      message.error('Không thể tải thông tin quiz');
+      const data = res.data || res;
+
+      setQuiz(normalizeQuiz(data));
+      await fetchQuestions();
+    } catch (err) {
+      console.log(err);
+      message.error('Không thể tải quiz');
+      setQuiz(null);
+      setQuestions([]);
     } finally {
       setLoading(false);
     }
@@ -51,7 +136,6 @@ const HostQuizDetailPage = () => {
     fetchQuiz();
   }, [quizId]);
 
-  /* ── handlers ──────────────────────────────────────── */
   const startEdit = () => {
     setEditTitle(quiz?.title ?? '');
     setEditing(true);
@@ -67,13 +151,22 @@ const HostQuizDetailPage = () => {
       message.warning('Tiêu đề không được để trống');
       return;
     }
+
     setSaving(true);
+
     try {
       await updateQuiz(quizId, { title: editTitle.trim() });
+
       message.success('Đã cập nhật tiêu đề');
-      setQuiz((prev) => ({ ...prev, title: editTitle.trim() }));
+
+      setQuiz((prev) => ({
+        ...prev,
+        title: editTitle.trim(),
+      }));
+
       setEditing(false);
-    } catch {
+    } catch (err) {
+      console.log(err);
       message.error('Cập nhật thất bại');
     } finally {
       setSaving(false);
@@ -82,18 +175,153 @@ const HostQuizDetailPage = () => {
 
   const handleDelete = async () => {
     setDeleting(true);
+
     try {
       await deleteQuiz(quizId);
+
       message.success('Đã xoá quiz');
       navigate(ROUTES.HOST_QUIZZES);
-    } catch {
+    } catch (err) {
+      console.log(err);
       message.error('Xoá quiz thất bại');
     } finally {
       setDeleting(false);
     }
   };
 
-  /* ── render: loading ───────────────────────────────── */
+  const handleHostGame = async () => {
+    setHosting(true);
+
+    try {
+      const res = await createRoom(Number(quizId));
+      const data = res.data || res;
+
+      const newRoomId = data.roomId || data.id;
+
+      if (!newRoomId) {
+        console.log('Create room response:', res);
+        message.error('Không thể tạo phòng, thiếu roomId');
+        return;
+      }
+
+      navigate(ROUTES.HOST_ROOM.replace(':roomId', newRoomId));
+    } catch (err) {
+      console.log(err);
+      message.error('Tạo phòng thất bại');
+    } finally {
+      setHosting(false);
+    }
+  };
+
+  const handleOpenAddQuestion = () => {
+    setEditingQuestion(null);
+    setQuestionModalOpen(true);
+  };
+
+  const handleOpenEditQuestion = (question) => {
+    setEditingQuestion(normalizeQuestion(question));
+    setQuestionModalOpen(true);
+  };
+
+  const handleDeleteQuestion = async (questionOrId) => {
+    const questionId =
+      typeof questionOrId === 'object'
+        ? questionOrId.questionId || questionOrId.id
+        : questionOrId;
+
+    if (!questionId) {
+      message.error('Không tìm thấy questionId');
+      console.log('Question missing id:', questionOrId);
+      return;
+    }
+
+    try {
+      await deleteQuestion(questionId);
+
+      message.success('Đã xoá câu hỏi');
+
+      setQuestions((prev) =>
+        prev.filter((q) => (q.questionId || q.id) !== questionId)
+      );
+
+      setQuiz((prev) => ({
+        ...prev,
+        questionCount: Math.max((prev?.questionCount || 1) - 1, 0),
+      }));
+    } catch (err) {
+      console.log(err);
+      message.error('Xoá câu hỏi thất bại');
+    }
+  };
+
+  const buildQuestionPayload = (questionData) => {
+    const answers = questionData.answers || [];
+
+    const correctIndex = answers.findIndex((a) => a.isCorrect);
+
+    return {
+      content: questionData.content,
+      answerA: answers[0]?.content || '',
+      answerB: answers[1]?.content || '',
+      answerC: answers[2]?.content || '',
+      answerD: answers[3]?.content || '',
+      correctAnswer: ['A', 'B', 'C', 'D'][correctIndex] || '',
+      timeLimit: Number(questionData.timeLimit || 20),
+    };
+  };
+
+  const handleSaveQuestion = async (questionData) => {
+    setQuestionSaving(true);
+
+    try {
+      const payload = buildQuestionPayload(questionData);
+
+      if (!payload.content?.trim()) {
+        message.warning('Nội dung câu hỏi không được để trống');
+        return;
+      }
+
+      if (!payload.answerA || !payload.answerB || !payload.answerC || !payload.answerD) {
+        message.warning('Cần nhập đủ 4 đáp án A, B, C, D');
+        return;
+      }
+
+      if (!payload.correctAnswer) {
+        message.warning('Cần chọn đáp án đúng');
+        return;
+      }
+
+      if (editingQuestion) {
+        const id = editingQuestion.questionId || editingQuestion.id;
+
+        if (!id) {
+          message.error('Không tìm thấy questionId để cập nhật');
+          return;
+        }
+
+        await updateQuestion(id, payload);
+        message.success('Cập nhật câu hỏi thành công');
+      } else {
+        await createQuestion(quizId, payload);
+        message.success('Thêm câu hỏi thành công');
+
+        setQuiz((prev) => ({
+          ...prev,
+          questionCount: (prev?.questionCount || 0) + 1,
+        }));
+      }
+
+      setQuestionModalOpen(false);
+      setEditingQuestion(null);
+      await fetchQuestions();
+    } catch (err) {
+      console.log(err);
+      message.error(err?.message || 'Lưu câu hỏi thất bại');
+    } finally {
+      setQuestionSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div
@@ -109,7 +337,6 @@ const HostQuizDetailPage = () => {
     );
   }
 
-  /* ── render: not found ─────────────────────────────── */
   if (!quiz) {
     return (
       <div className="quiz-empty">
@@ -126,19 +353,38 @@ const HostQuizDetailPage = () => {
     );
   }
 
-  /* ── render ────────────────────────────────────────── */
   return (
     <div className="quiz-detail">
-      {/* Back */}
-      <button
-        className="quiz-detail__back"
-        onClick={() => navigate(ROUTES.HOST_QUIZZES)}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 16,
+        }}
       >
-        <ArrowLeftOutlined />
-        Quay lại danh sách
-      </button>
+        <button
+          className="quiz-detail__back"
+          onClick={() => navigate(ROUTES.HOST_QUIZZES)}
+          style={{ marginBottom: 0 }}
+        >
+          <ArrowLeftOutlined />
+          Quay lại danh sách
+        </button>
 
-      {/* Hero card */}
+        <Button
+          type="primary"
+          size="large"
+          className="btn-host-game"
+          onClick={handleHostGame}
+          loading={hosting}
+          disabled={questions.length === 0}
+          style={{ backgroundColor: '#26890c', fontWeight: 600 }}
+        >
+          🎮 HOST GAME
+        </Button>
+      </div>
+
       <div className="quiz-detail__hero">
         <div className="quiz-detail__hero-top">
           {editing ? (
@@ -152,6 +398,7 @@ const HostQuizDetailPage = () => {
                 className="quiz-detail__edit-input"
                 placeholder="Nhập tiêu đề quiz…"
               />
+
               <Button
                 type="primary"
                 icon={<SaveOutlined />}
@@ -162,6 +409,7 @@ const HostQuizDetailPage = () => {
               >
                 Lưu
               </Button>
+
               <Button
                 icon={<CloseOutlined />}
                 onClick={cancelEdit}
@@ -178,6 +426,7 @@ const HostQuizDetailPage = () => {
               <Button icon={<EditOutlined />} onClick={startEdit}>
                 Sửa tiêu đề
               </Button>
+
               <Button
                 danger
                 icon={<DeleteOutlined />}
@@ -189,7 +438,6 @@ const HostQuizDetailPage = () => {
           )}
         </div>
 
-        {/* Stats */}
         <div className="quiz-detail__stats">
           <div className="quiz-detail__stat">
             <span className="quiz-detail__stat-icon">
@@ -197,7 +445,9 @@ const HostQuizDetailPage = () => {
             </span>
             <div className="quiz-detail__stat-info">
               <span className="quiz-detail__stat-label">Quiz ID</span>
-              <span className="quiz-detail__stat-value">#{quiz.quizId}</span>
+              <span className="quiz-detail__stat-value">
+                #{displayIndex || quiz.quizId}
+              </span>
             </div>
           </div>
 
@@ -208,7 +458,7 @@ const HostQuizDetailPage = () => {
             <div className="quiz-detail__stat-info">
               <span className="quiz-detail__stat-label">Câu hỏi</span>
               <span className="quiz-detail__stat-value">
-                {quiz.questionCount ?? 0}
+                {questions.length}
               </span>
             </div>
           </div>
@@ -227,35 +477,36 @@ const HostQuizDetailPage = () => {
             </div>
           </div>
 
-          <div className="quiz-detail__stat">
-            <span className="quiz-detail__stat-icon">
-              <ClockCircleOutlined />
-            </span>
-            <div className="quiz-detail__stat-info">
-              <span className="quiz-detail__stat-label">Cập nhật</span>
-              <span className="quiz-detail__stat-value">
-                {quiz.updatedAt
-                  ? dayjs(quiz.updatedAt).format('DD/MM/YYYY')
-                  : '—'}
-              </span>
-            </div>
-          </div>
+          
         </div>
       </div>
 
-      {/* Questions section */}
       <div className="quiz-detail__info-card">
-        <div className="quiz-detail__info-header">
-          <h3 className="quiz-detail__info-title">
-            📝 Danh sách câu hỏi
-          </h3>
+        <div
+          className="quiz-detail__info-header"
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
+          <h3 className="quiz-detail__info-title">📝 Danh sách câu hỏi</h3>
+
+          <Button type="primary" onClick={handleOpenAddQuestion}>
+            + Thêm câu hỏi
+          </Button>
         </div>
-        <div className="quiz-detail__info-body">
-          <p>Phần quản lý câu hỏi sẽ được build tiếp ở giai đoạn sau.</p>
+
+        <div className="quiz-detail__info-body" style={{ padding: '0' }}>
+          <QuestionList
+            questions={questions}
+            loading={questionsLoading}
+            onEdit={handleOpenEditQuestion}
+            onDelete={handleDeleteQuestion}
+          />
         </div>
       </div>
 
-      {/* ── Delete Modal ──────────────────────────────── */}
       <Modal
         title="Xác nhận xoá quiz"
         open={deleteOpen}
@@ -277,6 +528,17 @@ const HostQuizDetailPage = () => {
           </p>
         </div>
       </Modal>
+
+      <QuestionFormModal
+        open={questionModalOpen}
+        onCancel={() => {
+          setQuestionModalOpen(false);
+          setEditingQuestion(null);
+        }}
+        onSave={handleSaveQuestion}
+        initialData={editingQuestion}
+        saving={questionSaving}
+      />
     </div>
   );
 };

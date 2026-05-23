@@ -5,7 +5,7 @@
   box-shadow: var(--shadow-xl);
   padding: 1.5rem;
   width: 100%;
-  max-width: 380px; 
+  max-width: 380px;
   margin: 0 auto;
   box-sizing: border-box;
 }
@@ -14,6 +14,7 @@
     padding: 2rem;
   }
 }
+
 .title {
   font-size: 1.875rem;
   font-weight: 700;
@@ -83,6 +84,7 @@
   color: var(--gray-500);
   cursor: not-allowed;
 }
+
 .whiteText {
   color: white !important;
 }

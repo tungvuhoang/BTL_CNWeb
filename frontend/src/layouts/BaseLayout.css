@@ -4,12 +4,20 @@
   --k-purple-light: #864cbf;
   --k-violet: #6c3db4;
   --k-lime: #66bf39;
+  --k-red: #e21b3c;
   --k-shadow-card: 0 4px 6px rgba(0, 0, 0, 0.1);
   --k-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.16);
   --k-gray-100: #f2f2f2;
   --k-gray-200: #e5e5e5;
   --k-gray-300: #cccccc;
   --sidebar-width: 260px;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
 }
 
 body {
@@ -20,14 +28,13 @@ body {
 .base-layout {
   display: flex;
   min-height: 100vh;
-  flex-direction: column;
   background-color: var(--k-gray-100);
   color: #333;
 }
 
-@media (min-width: 1024px) {
+@media (max-width: 1023px) {
   .base-layout {
-    flex-direction: row;
+    flex-direction: column;
   }
 }
 
@@ -52,7 +59,7 @@ body {
   flex-direction: column;
   background: var(--k-purple-deep);
   color: #fff;
-  box-shadow: 4px 0 15px rgba(0,0,0,0.2);
+  box-shadow: 4px 0 15px rgba(0, 0, 0, 0.2);
   transform: translateX(-100%);
   transition: transform 0.3s ease-out;
 }
@@ -65,6 +72,7 @@ body {
   .base-sidebar-overlay {
     display: none;
   }
+
   .base-sidebar {
     position: sticky;
     top: 0;
@@ -72,6 +80,7 @@ body {
     transform: translateX(0);
     z-index: 0;
     box-shadow: none;
+    flex-shrink: 0;
   }
 }
 
@@ -141,6 +150,7 @@ body {
   color: var(--k-purple);
   box-shadow: var(--k-shadow-card);
 }
+
 .base-sidebar__link--active:hover {
   background: #fff;
   transform: none;
@@ -165,12 +175,16 @@ body {
   flex: 1;
   flex-direction: column;
   min-width: 0;
+  height: 100vh;
+  overflow: hidden;
   background-color: var(--k-gray-100);
 }
 
 .base-main-content {
   flex: 1;
+  overflow-y: auto;
   padding: 24px 16px;
+  background-color: var(--k-gray-100);
 }
 
 @media (min-width: 640px) {
@@ -195,7 +209,7 @@ body {
   top: 0;
   z-index: 30;
   background: #fff;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08); /* Kahoot clean white top bar */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
   border-bottom: 1px solid var(--k-gray-200);
 }
 
@@ -322,8 +336,8 @@ body {
 
 .base-header__logout-btn:hover {
   background: var(--k-gray-100);
-  color: var(--k-red, #e21b3c);
-  border-color: var(--k-red, #e21b3c);
+  color: var(--k-red);
+  border-color: var(--k-red);
   box-shadow: 0 4px 0 rgba(226, 27, 60, 0.4);
 }
 
@@ -336,8 +350,8 @@ body {
 .base-footer {
   background: #fff;
   border-top: 1px solid #e5e5e5;
-  padding: 24px 20px;
-  margin-top: auto;
+  padding: 14px 20px;
+  flex-shrink: 0;
 }
 
 .base-footer__container {
@@ -389,8 +403,15 @@ body {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Utility to hide skip link unless focused */
@@ -426,6 +447,7 @@ body {
   .base-sidebar {
     transition-duration: 0.01ms !important;
   }
+
   .animate-fadeIn {
     animation-duration: 0.01ms !important;
   }

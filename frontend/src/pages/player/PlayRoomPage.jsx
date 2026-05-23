@@ -8,10 +8,12 @@ import { createPlayerSocket } from '../../api/playerSocket';
 
 const PlayRoomPage = () => {
   const { roomId } = useParams();
+
   const [liveLeaderboard, setLiveLeaderboard] = useState(null);
   const [player, setPlayer] = useState(null);
   const [room, setRoom] = useState(null);
   const [error, setError] = useState('');
+  const [questionVersion, setQuestionVersion] = useState(0);
 
   const fetchRoomState = async () => {
     try {
@@ -33,39 +35,59 @@ const PlayRoomPage = () => {
       setError('Player session not found');
       return;
     }
-    
-    setPlayer(savedPlayer);
 
+    setPlayer(savedPlayer);
     fetchRoomState();
 
     const socket = createPlayerSocket({
       roomId,
 
-      onRoomUpdate: (event) => {
-        if (event.type === 'GAME_STARTED') {
-          fetchRoomState();
+      onRoomUpdate: async (event) => {
+        console.log('ROOM UPDATE:', event);
+
+        if (event?.type === 'GAME_STARTED') {
+          setRoom((prev) => ({
+            ...prev,
+            status: 'PLAYING',
+          }));
         }
 
-        if (event.type === 'GAME_ENDED') {
-          fetchRoomState();
+        if (event?.type === 'GAME_ENDED') {
+          setRoom((prev) => ({
+            ...prev,
+            status: 'FINISHED',
+          }));
         }
+
+        await fetchRoomState();
       },
 
-      onQuestionUpdate: () => {
-        fetchRoomState();
+      onQuestionUpdate: async (event) => {
+        console.log('QUESTION UPDATE:', event);
+
+        setQuestionVersion((v) => v + 1);
+
+        setRoom((prev) => ({
+          ...prev,
+          status: 'PLAYING',
+        }));
+
+        await fetchRoomState();
       },
 
-      onPlayerJoined: () => {
-        fetchRoomState();
+      onPlayerJoined: async (event) => {
+        console.log('PLAYER JOINED:', event);
+        await fetchRoomState();
       },
 
-      onLeaderboardUpdate: () => {
-        setLiveLeaderboard(event.payload || []);
+      onLeaderboardUpdate: (event) => {
+        console.log('LEADERBOARD UPDATE:', event);
+        setLiveLeaderboard(event?.payload || []);
       },
     });
 
     return () => {
-      socket.deactivate();
+      socket?.deactivate?.();
     };
   }, [roomId]);
 
@@ -87,6 +109,7 @@ const PlayRoomPage = () => {
       <PlayerGameScreen
         roomId={roomId}
         liveLeaderboard={liveLeaderboard}
+        questionVersion={questionVersion}
       />
     );
   }
@@ -105,7 +128,7 @@ const PlayRoomPage = () => {
       </h1>
 
       <p style={{ fontSize: 20, marginBottom: 24 }}>
-        Welcome, <b>{player?.playerName || 'Player'}</b>
+        Welcome, <b>{player?.name || player?.playerName || 'Player'}</b>
       </p>
 
       <div

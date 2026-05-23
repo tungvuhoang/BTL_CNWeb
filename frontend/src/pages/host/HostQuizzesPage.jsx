@@ -14,11 +14,9 @@ import { ROUTES } from '../../utils/constants';
 import dayjs from 'dayjs';
 import './HostQuizzes.css';
 
-/* ── banner color rotation ───────────────────────────── */
 const BANNER_COLORS = ['purple', 'blue', 'red', 'green', 'orange'];
 const getBannerColor = (index) => BANNER_COLORS[index % BANNER_COLORS.length];
 
-/* ── loading skeleton ────────────────────────────────── */
 const SkeletonGrid = () => (
   <div className="quiz-grid--loading">
     {Array.from({ length: 6 }).map((_, i) => (
@@ -37,28 +35,35 @@ const SkeletonGrid = () => (
 const HostQuizzesPage = () => {
   const navigate = useNavigate();
 
-  /* ── state ─────────────────────────────────────────── */
   const [quizzes, setQuizzes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
 
-  // create modal
   const [createOpen, setCreateOpen] = useState(false);
   const [createTitle, setCreateTitle] = useState('');
   const [creating, setCreating] = useState(false);
 
-  // delete modal
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
-  /* ── fetch ─────────────────────────────────────────── */
+  const normalizeQuiz = (quiz) => ({
+    ...quiz,
+    quizId: quiz.quizId || quiz.id,
+    questionCount: quiz.questionCount ?? quiz.questions?.length ?? 0,
+  });
+
   const fetchQuizzes = async () => {
     setLoading(true);
+
     try {
       const res = await getMyQuizzes();
-      setQuizzes(res.data ?? []);
-    } catch {
+      const data = res.data || res || [];
+
+      setQuizzes(data.map(normalizeQuiz));
+    } catch (err) {
+      console.log(err);
       message.error('Không thể tải danh sách quiz');
+      setQuizzes([]);
     } finally {
       setLoading(false);
     }
@@ -68,25 +73,32 @@ const HostQuizzesPage = () => {
     fetchQuizzes();
   }, []);
 
-  /* ── handlers ──────────────────────────────────────── */
   const handleCreate = async () => {
-    if (!createTitle.trim()) {
+    const title = createTitle.trim();
+
+    if (!title) {
       message.warning('Vui lòng nhập tiêu đề quiz');
       return;
     }
+
     setCreating(true);
+
     try {
-      const res = await createQuiz({ title: createTitle.trim() });
+      const res = await createQuiz({ title });
+      const data = res.data || res;
+      const newId = data.quizId || data.id;
+
       message.success('Tạo quiz thành công!');
       setCreateOpen(false);
       setCreateTitle('');
-      const newId = res.data?.quizId ?? res.data?.id;
+
       if (newId) {
         navigate(ROUTES.HOST_QUIZ_DETAIL.replace(':quizId', newId));
       } else {
-        fetchQuizzes();
+        await fetchQuizzes();
       }
-    } catch {
+    } catch (err) {
+      console.log(err);
       message.error('Tạo quiz thất bại');
     } finally {
       setCreating(false);
@@ -95,29 +107,51 @@ const HostQuizzesPage = () => {
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
+
+    const quizId = deleteTarget.quizId || deleteTarget.id;
+
+    if (!quizId) {
+      message.error('Không tìm thấy quizId');
+      console.log('Quiz missing id:', deleteTarget);
+      return;
+    }
+
     setDeleting(true);
+
     try {
-      await deleteQuiz(deleteTarget.quizId);
+      await deleteQuiz(quizId);
+
       message.success('Đã xoá quiz');
       setDeleteTarget(null);
-      fetchQuizzes();
-    } catch {
+
+      setQuizzes((prev) =>
+        prev.filter((q) => (q.quizId || q.id) !== quizId)
+      );
+    } catch (err) {
+      console.log(err);
       message.error('Xoá quiz thất bại');
     } finally {
       setDeleting(false);
     }
   };
 
-  const goToDetail = (quizId) => {
-    navigate(ROUTES.HOST_QUIZ_DETAIL.replace(':quizId', quizId));
+  const goToDetail = (quizId, displayIndex) => {
+    if (!quizId) {
+      message.error('Không tìm thấy quizId');
+      return;
+    }
+
+    navigate(ROUTES.HOST_QUIZ_DETAIL.replace(':quizId', quizId), {
+      state: {
+        displayIndex,
+      },
+    });
   };
 
-  /* ── filtered data ─────────────────────────────────── */
   const filtered = quizzes.filter((q) =>
-    q.title?.toLowerCase().includes(searchText.toLowerCase()),
+    (q.title || '').toLowerCase().includes(searchText.toLowerCase())
   );
 
-  /* ── render ────────────────────────────────────────── */
   return (
     <div className="host-quizzes">
       <section className="host-quizzes__hero">
@@ -147,7 +181,11 @@ const HostQuizzesPage = () => {
             {filtered.length} / {quizzes.length} quiz
           </span>
         )}
-        <button className="btn-create-quiz host-quizzes__toolbar-create" onClick={() => setCreateOpen(true)}>
+
+        <button
+          className="btn-create-quiz host-quizzes__toolbar-create"
+          onClick={() => setCreateOpen(true)}
+        >
           <PlusOutlined />
           Tạo Quiz mới
         </button>
@@ -158,9 +196,9 @@ const HostQuizzesPage = () => {
       ) : filtered.length === 0 ? (
         <div className="quiz-empty">
           <span className="quiz-empty__icon">📝</span>
-          <h3>
-            {searchText ? 'Không tìm thấy quiz' : 'Chưa có quiz nào'}
-          </h3>
+
+          <h3>{searchText ? 'Không tìm thấy quiz' : 'Chưa có quiz nào'}</h3>
+
           <p>
             {searchText
               ? 'Thử tìm kiếm với từ khoá khác'
@@ -178,65 +216,77 @@ const HostQuizzesPage = () => {
         </div>
       ) : (
         <div className="quiz-grid">
-          {filtered.map((quiz, index) => (
-            <div
-              className="quiz-card"
-              key={quiz.quizId}
-              onClick={() => goToDetail(quiz.quizId)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') goToDetail(quiz.quizId);
-              }}
-            >
-              <div className={`quiz-card__cover quiz-card__cover--${getBannerColor(index)}`}>
-                <span className="quiz-card__id">Quiz #{quiz.quizId}</span>
-              </div>
-              <div className="quiz-card__body">
-                <h3 className="quiz-card__title">{quiz.title}</h3>
-                <div className="quiz-card__meta">
-                  <span className="quiz-card__meta-item quiz-card__meta-item--questions">
-                    <QuestionCircleOutlined />
-                    {quiz.questionCount ?? 0} câu hỏi
-                  </span>
-                  <span className="quiz-card__meta-item">
-                    <CalendarOutlined />
-                    {quiz.createdAt
-                      ? dayjs(quiz.createdAt).format('DD/MM/YYYY')
-                      : '—'}
-                  </span>
-                </div>
-              </div>
-              <div className="quiz-card__footer">
+          {filtered.map((quiz, index) => {
+            const quizId = quiz.quizId || quiz.id;
+
+            return (
+              <div
+                className="quiz-card"
+                key={quizId}
+                onClick={() => goToDetail(quizId, index + 1)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') goToDetail(quizId, index + 1);
+                }}
+              >
                 <div
-                  className="quiz-card__actions"
-                  onClick={(e) => e.stopPropagation()}
+                  className={`quiz-card__cover quiz-card__cover--${getBannerColor(
+                    index
+                  )}`}
                 >
-                  <Tooltip title="Chỉnh sửa">
-                    <Button
-                      type="text"
-                      size="small"
-                      icon={<EditOutlined />}
-                      onClick={() => goToDetail(quiz.quizId)}
-                    />
-                  </Tooltip>
-                  <Tooltip title="Xoá">
-                    <Button
-                      type="text"
-                      size="small"
-                      danger
-                      icon={<DeleteOutlined />}
-                      onClick={() => setDeleteTarget(quiz)}
-                    />
-                  </Tooltip>
+                  <span className="quiz-card__id">Quiz #{index + 1}</span>
+                </div>
+
+                <div className="quiz-card__body">
+                  <h3 className="quiz-card__title">{quiz.title}</h3>
+
+                  <div className="quiz-card__meta">
+                    <span className="quiz-card__meta-item quiz-card__meta-item--questions">
+                      <QuestionCircleOutlined />
+                      {quiz.questionCount ?? 0} câu hỏi
+                    </span>
+
+                    <span className="quiz-card__meta-item">
+                      <CalendarOutlined />
+                      {quiz.createdAt
+                        ? dayjs(quiz.createdAt).format('DD/MM/YYYY')
+                        : '—'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="quiz-card__footer">
+                  <div
+                    className="quiz-card__actions"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Tooltip title="Chỉnh sửa">
+                      <Button
+                        type="text"
+                        size="small"
+                        icon={<EditOutlined />}
+                        onClick={() => goToDetail(quizId, index + 1)}
+                      />
+                    </Tooltip>
+
+                    <Tooltip title="Xoá">
+                      <Button
+                        type="text"
+                        size="small"
+                        danger
+                        icon={<DeleteOutlined />}
+                        onClick={() => setDeleteTarget(quiz)}
+                      />
+                    </Tooltip>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
-      {/* ── Create Quiz Modal ─────────────────────────── */}
       <Modal
         title="Tạo Quiz mới"
         open={createOpen}
@@ -262,11 +312,13 @@ const HostQuizzesPage = () => {
             className="create-quiz-modal__input"
             autoFocus
           />
-          <p className="create-quiz-modal__hint">Bạn có thể thay đổi tiêu đề sau</p>
+
+          <p className="create-quiz-modal__hint">
+            Bạn có thể thay đổi tiêu đề sau
+          </p>
         </div>
       </Modal>
 
-      {/* ── Delete Confirm Modal ──────────────────────── */}
       <Modal
         title="Xác nhận xoá quiz"
         open={!!deleteTarget}
@@ -284,7 +336,10 @@ const HostQuizzesPage = () => {
             Bạn có chắc muốn xoá quiz{' '}
             <strong>"{deleteTarget?.title}"</strong>?
           </p>
-          <p className="delete-modal__warning">Hành động này không thể hoàn tác.</p>
+
+          <p className="delete-modal__warning">
+            Hành động này không thể hoàn tác.
+          </p>
         </div>
       </Modal>
     </div>

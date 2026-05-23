@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { authApi } from '../../api/authApi';
+import { register as registerApi } from '../../api/authApi';
 import { ROUTES } from '../../utils/constants';
 import { PlayerContainer, PlayerInput, PlayerButton } from '../../components/PlayerContainer';
 import styles from './Auth.module.css';
@@ -37,7 +37,7 @@ const RegisterPage = () => {
     setLoading(true);
     setServerError('');
     try {
-      await authApi.register({ username: form.username, password: form.password });
+      await registerApi({ username: form.username, password: form.password });
       navigate(ROUTES.LOGIN, { replace: true });
     } catch (err) {
       setServerError(err.message || 'Đăng ký thất bại');

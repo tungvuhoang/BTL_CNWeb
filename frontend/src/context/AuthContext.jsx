@@ -1,55 +1,61 @@
 import { createContext, useContext, useEffect, useState } from "react";
+import { getToken, setToken, removeToken } from "../utils/token";
 
-const AuthContext = createContext(null);
+export const AuthContext = createContext(null);
 
-export function AuthProvider({ children }) {
-  const [accessToken, setAccessToken] = useState(() =>
-    localStorage.getItem("accessToken")
-  );
+export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
+  const [username, setUsername] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const [username, setUsername] = useState(() =>
-    localStorage.getItem("username")
-  );
+  useEffect(() => {
+    const token = getToken();
+    if (token) {
+      setUser({ id: 1, name: "User" });
+      const storedUsername = localStorage.getItem("username");
+      if (storedUsername) setUsername(storedUsername);
+    }
+    setLoading(false);
+  }, []);
 
-  const isAuthenticated = !!accessToken;
+  const login = (tokenOrPayload, maybeUsername) => {
+    const token =
+      typeof tokenOrPayload === "object"
+        ? tokenOrPayload.token
+        : tokenOrPayload;
 
-  const login = ({ token, username }) => {
-    localStorage.setItem("accessToken", token);
-    localStorage.setItem("username", username);
+    const username =
+      typeof tokenOrPayload === "object"
+        ? tokenOrPayload.username
+        : maybeUsername;
 
-    setAccessToken(token);
+    setToken(token);
+    setUser({ id: 1, name: username });
     setUsername(username);
+    localStorage.setItem("username", username);
   };
 
   const logout = () => {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("username");
-
-    setAccessToken(null);
+    removeToken();
+    setUser(null);
     setUsername(null);
+    localStorage.removeItem("username");
   };
 
   const value = {
-    accessToken,
+    user,
     username,
-    isAuthenticated,
+    isAuthenticated: !!user,
+    loading,
     login,
     logout,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
-}
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};
 
-export function useAuth() {
+export const useAuth = () => {
   const context = useContext(AuthContext);
-
-  if (!context) {
-    throw new Error("useAuth must be used inside AuthProvider");
-  }
-
+  if (!context) throw new Error("useAuth must be used within AuthProvider");
   return context;
-}
+};
