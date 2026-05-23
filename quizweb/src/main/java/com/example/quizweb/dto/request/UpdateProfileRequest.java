@@ -2,7 +2,6 @@ package com.example.quizweb.dto.request;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -10,7 +9,7 @@ import java.time.LocalDate;
 
 @Getter
 @Setter
-public class RegisterRequest {
+public class UpdateProfileRequest {
 
     @NotBlank(message = "Full name must not be blank")
     private String fullName;
@@ -20,12 +19,4 @@ public class RegisterRequest {
     private String email;
 
     private LocalDate dateOfBirth;
-
-    @NotBlank(message = "Username must not be blank")
-    @Size(min = 3, message = "Username must be at least 3 characters")
-    private String username;
-
-    @NotBlank(message = "Password must not be blank")
-    @Size(min = 6, message = "Password must be at least 6 characters")
-    private String password;
 }

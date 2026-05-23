@@ -17,6 +17,8 @@ import './HostQuizzes.css';
 const BANNER_COLORS = ['purple', 'blue', 'red', 'green', 'orange'];
 const getBannerColor = (index) => BANNER_COLORS[index % BANNER_COLORS.length];
 
+const PAGE_SIZE = 3;
+
 const SkeletonGrid = () => (
   <div className="quiz-grid--loading">
     {Array.from({ length: 6 }).map((_, i) => (
@@ -38,6 +40,7 @@ const HostQuizzesPage = () => {
   const [quizzes, setQuizzes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [createTitle, setCreateTitle] = useState('');
@@ -72,6 +75,10 @@ const HostQuizzesPage = () => {
   useEffect(() => {
     fetchQuizzes();
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchText]);
 
   const handleCreate = async () => {
     const title = createTitle.trim();
@@ -124,9 +131,22 @@ const HostQuizzesPage = () => {
       message.success('Đã xoá quiz');
       setDeleteTarget(null);
 
-      setQuizzes((prev) =>
-        prev.filter((q) => (q.quizId || q.id) !== quizId)
-      );
+      setQuizzes((prev) => {
+        const next = prev.filter((q) => (q.quizId || q.id) !== quizId);
+
+        const nextFiltered = next.filter((q) =>
+          (q.title || '').toLowerCase().includes(searchText.toLowerCase())
+        );
+
+        const nextTotalPages = Math.max(
+          1,
+          Math.ceil(nextFiltered.length / PAGE_SIZE)
+        );
+
+        setCurrentPage((page) => Math.min(page, nextTotalPages));
+
+        return next;
+      });
     } catch (err) {
       console.log(err);
       message.error('Xoá quiz thất bại');
@@ -150,6 +170,13 @@ const HostQuizzesPage = () => {
 
   const filtered = quizzes.filter((q) =>
     (q.title || '').toLowerCase().includes(searchText.toLowerCase())
+  );
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+
+  const paginatedQuizzes = filtered.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
   );
 
   return (
@@ -176,6 +203,7 @@ const HostQuizzesPage = () => {
             size="large"
           />
         </div>
+
         {!loading && (
           <span className="host-quizzes__count">
             {filtered.length} / {quizzes.length} quiz
@@ -204,6 +232,7 @@ const HostQuizzesPage = () => {
               ? 'Thử tìm kiếm với từ khoá khác'
               : 'Bắt đầu tạo quiz đầu tiên của bạn!'}
           </p>
+
           {!searchText && (
             <button
               className="btn-create-quiz"
@@ -215,76 +244,125 @@ const HostQuizzesPage = () => {
           )}
         </div>
       ) : (
-        <div className="quiz-grid">
-          {filtered.map((quiz, index) => {
-            const quizId = quiz.quizId || quiz.id;
+        <>
+          <div className="quiz-grid">
+            {paginatedQuizzes.map((quiz, index) => {
+              const quizId = quiz.quizId || quiz.id;
 
-            return (
+              const displayIndex =
+                (currentPage - 1) * PAGE_SIZE + index + 1;
+
+              return (
+                <div
+                  className="quiz-card"
+                  key={quizId}
+                  onClick={() => goToDetail(quizId, displayIndex)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') goToDetail(quizId, displayIndex);
+                  }}
+                >
+                  <div
+                    className={`quiz-card__cover quiz-card__cover--${getBannerColor(
+                      displayIndex - 1
+                    )}`}
+                  >
+                    <span className="quiz-card__id">
+                      Quiz #{displayIndex}
+                    </span>
+                  </div>
+
+                  <div className="quiz-card__body">
+                    <h3 className="quiz-card__title">{quiz.title}</h3>
+
+                    <div className="quiz-card__meta">
+                      <span className="quiz-card__meta-item quiz-card__meta-item--questions">
+                        <QuestionCircleOutlined />
+                        {quiz.questionCount ?? 0} câu hỏi
+                      </span>
+
+                      <span className="quiz-card__meta-item">
+                        {quiz.isPublic ? '🌍 Public' : '🔒 Private'}
+                      </span>
+                      
+                      <span className="quiz-card__meta-item">
+                        <CalendarOutlined />
+                        {quiz.createdAt
+                          ? dayjs(quiz.createdAt).format('DD/MM/YYYY')
+                          : '—'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="quiz-card__footer">
+                    <div
+                      className="quiz-card__actions"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Tooltip title="Chỉnh sửa">
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<EditOutlined />}
+                          onClick={() => goToDetail(quizId, displayIndex)}
+                        />
+                      </Tooltip>
+
+                      <Tooltip title="Xoá">
+                        <Button
+                          type="text"
+                          size="small"
+                          danger
+                          icon={<DeleteOutlined />}
+                          onClick={() => setDeleteTarget(quiz)}
+                        />
+                      </Tooltip>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {totalPages > 1 && (
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                gap: 12,
+                marginTop: 32,
+              }}
+            >
+              <Button
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((page) => page - 1)}
+              >
+                ← Trước
+              </Button>
+
               <div
-                className="quiz-card"
-                key={quizId}
-                onClick={() => goToDetail(quizId, index + 1)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') goToDetail(quizId, index + 1);
+                style={{
+                  background: '#efe8ff',
+                  color: '#46178f',
+                  padding: '8px 18px',
+                  borderRadius: 999,
+                  fontWeight: 800,
                 }}
               >
-                <div
-                  className={`quiz-card__cover quiz-card__cover--${getBannerColor(
-                    index
-                  )}`}
-                >
-                  <span className="quiz-card__id">Quiz #{index + 1}</span>
-                </div>
-
-                <div className="quiz-card__body">
-                  <h3 className="quiz-card__title">{quiz.title}</h3>
-
-                  <div className="quiz-card__meta">
-                    <span className="quiz-card__meta-item quiz-card__meta-item--questions">
-                      <QuestionCircleOutlined />
-                      {quiz.questionCount ?? 0} câu hỏi
-                    </span>
-
-                    <span className="quiz-card__meta-item">
-                      <CalendarOutlined />
-                      {quiz.createdAt
-                        ? dayjs(quiz.createdAt).format('DD/MM/YYYY')
-                        : '—'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="quiz-card__footer">
-                  <div
-                    className="quiz-card__actions"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Tooltip title="Chỉnh sửa">
-                      <Button
-                        type="text"
-                        size="small"
-                        icon={<EditOutlined />}
-                        onClick={() => goToDetail(quizId, index + 1)}
-                      />
-                    </Tooltip>
-
-                    <Tooltip title="Xoá">
-                      <Button
-                        type="text"
-                        size="small"
-                        danger
-                        icon={<DeleteOutlined />}
-                        onClick={() => setDeleteTarget(quiz)}
-                      />
-                    </Tooltip>
-                  </div>
-                </div>
+                Trang {currentPage} / {totalPages}
               </div>
-            );
-          })}
-        </div>
+
+              <Button
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage((page) => page + 1)}
+              >
+                Sau →
+              </Button>
+            </div>
+          )}
+        </>
       )}
 
       <Modal
@@ -303,6 +381,7 @@ const HostQuizzesPage = () => {
       >
         <div className="create-quiz-modal__body">
           <label className="create-quiz-modal__label">Tiêu đề quiz</label>
+
           <Input
             placeholder="Ví dụ: Kiểm tra Toán học lớp 10"
             value={createTitle}

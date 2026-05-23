@@ -18,14 +18,6 @@ const AuthLayout = () => {
 
   return (
     <div className={styles.wrapper}>
-      {/* Header */}
-      <header className={styles.header}>
-        <div className={styles.headerInner}>
-          <div className={styles.logo}>
-            🎮 Web_Quiz
-          </div>
-        </div>
-      </header>
 
       {/* Main content area - gradient background visible */}
       <main className={styles.main}>
@@ -34,19 +26,6 @@ const AuthLayout = () => {
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className={styles.footer}>
-        <div className={styles.footerInner}>
-          <div className={styles.footerContent}>
-            <p>
-              🎯 <span className={styles.footerTextBold}>Web_Quiz</span> - Real-time Learning Experience
-            </p>
-            <p className={styles.footerCopy}>
-              © 2026 All rights reserved
-            </p>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 };

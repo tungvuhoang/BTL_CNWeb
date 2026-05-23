@@ -15,4 +15,8 @@ public interface QuizRepository extends JpaRepository<Quiz, Long> {
 
     @EntityGraph(attributePaths = {"questions"})
     Optional<Quiz> findWithQuestionsByIdAndHostUsername(Long id, String username);
+
+    List<Quiz> findByIsPublicTrue();
+
+    List<Quiz> findByIsPublicTrueAndTitleContainingIgnoreCase(String keyword);
 }

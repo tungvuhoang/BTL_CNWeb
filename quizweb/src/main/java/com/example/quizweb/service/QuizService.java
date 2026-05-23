@@ -39,6 +39,7 @@ public class QuizService {
         Quiz quiz = Quiz.builder()
                 .host(host)
                 .title(request.getTitle())
+                .isPublic(request.getIsPublic() != null ? request.getIsPublic() : false)
                 .build();
 
         quizRepository.save(quiz);
@@ -55,6 +56,7 @@ public class QuizService {
         return quizRepository.findByHostUsernameOrderByCreatedAtDesc(username)
                 .stream()
                 .map(quiz -> QuizItemResponse.builder()
+                        .isPublic(quiz.getIsPublic())
                         .quizId(quiz.getId())
                         .title(quiz.getTitle())
                         .questionCount(
@@ -77,6 +79,7 @@ public class QuizService {
                 .title(quiz.getTitle())
                 .hostId(quiz.getHost().getId())
                 .createdAt(quiz.getCreatedAt())
+                .isPublic(Boolean.TRUE.equals(quiz.getIsPublic()))
                 .questions(
                         quiz.getQuestions().stream()
                                 .map(this::mapQuestionDetail)
@@ -89,6 +92,10 @@ public class QuizService {
     public void updateQuiz(Long quizId, String username, UpdateQuizRequest request) {
         Quiz quiz = quizRepository.findByIdAndHostUsername(quizId, username)
                 .orElseThrow(() -> buildQuizNotFoundOrForbidden(quizId, username));
+
+        if (request.getIsPublic() != null) {
+            quiz.setIsPublic(request.getIsPublic());
+        }
 
         quiz.setTitle(request.getTitle());
     }
@@ -119,6 +126,25 @@ public class QuizService {
                 .build();
     }
 
+    private QuizItemResponse toQuizItemResponse(Quiz quiz) {
+        return QuizItemResponse.builder()
+                .quizId(quiz.getId())
+                .title(quiz.getTitle())
+                .questionCount(
+                        quiz.getQuestions() == null
+                                ? 0
+                                : quiz.getQuestions().size()
+                )
+                .isPublic(Boolean.TRUE.equals(quiz.getIsPublic()))
+                .authorName(
+                        quiz.getHost().getFullName() != null && !quiz.getHost().getFullName().isBlank()
+                                ? quiz.getHost().getFullName()
+                                : quiz.getHost().getUsername()
+                )
+                .createdAt(quiz.getCreatedAt())
+                .build();
+    }
+
     private ApiException buildQuizNotFoundOrForbidden(Long quizId, String username) {
         boolean exists = quizRepository.existsById(quizId);
 
@@ -127,5 +153,49 @@ public class QuizService {
         }
 
         return new ApiException(ErrorCode.QUIZ_FORBIDDEN, "You do not have permission to access this quiz");
+    }
+
+    @Transactional(readOnly = true)
+    public List<QuizItemResponse> searchPublicQuizzes(String keyword) {
+        List<Quiz> quizzes;
+
+        if (keyword == null || keyword.trim().isEmpty()) {
+            quizzes = quizRepository.findByIsPublicTrue();
+        } else {
+            quizzes = quizRepository.findByIsPublicTrueAndTitleContainingIgnoreCase(keyword.trim());
+        }
+
+        return quizzes.stream()
+                .map(this::toQuizItemResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public QuizDetailResponse getPublicQuizDetail(Long quizId) {
+        Quiz quiz = quizRepository.findById(quizId)
+                .orElseThrow(() -> new ApiException(
+                        ErrorCode.QUIZ_NOT_FOUND,
+                        "Quiz not found"
+                ));
+
+        if (!Boolean.TRUE.equals(quiz.getIsPublic())) {
+            throw new ApiException(
+                    ErrorCode.QUIZ_FORBIDDEN,
+                    "This quiz is private"
+            );
+        }
+
+        return QuizDetailResponse.builder()
+                .quizId(quiz.getId())
+                .title(quiz.getTitle())
+                .hostId(quiz.getHost().getId())
+                .createdAt(quiz.getCreatedAt())
+                .isPublic(Boolean.TRUE.equals(quiz.getIsPublic()))
+                .questions(
+                        quiz.getQuestions().stream()
+                                .map(this::mapQuestionDetail)
+                                .toList()
+                )
+                .build();
     }
 }

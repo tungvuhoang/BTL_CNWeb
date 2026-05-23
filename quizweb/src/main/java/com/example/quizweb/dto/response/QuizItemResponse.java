@@ -12,4 +12,6 @@ public class QuizItemResponse {
     private String title;
     private Integer questionCount;
     private LocalDateTime createdAt;
+    private Boolean isPublic;
+    private String authorName;
 }

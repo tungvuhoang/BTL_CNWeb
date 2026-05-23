@@ -40,6 +40,26 @@ public class QuizController {
         );
     }
 
+    @GetMapping("/public")
+    public ApiResponse<List<QuizItemResponse>> searchPublicQuizzes(
+            @RequestParam(required = false) String keyword
+    ) {
+        return ApiResponse.success(
+                quizService.searchPublicQuizzes(keyword),
+                "Public quizzes fetched"
+        );
+    }
+
+    @GetMapping("/public/{quizId}")
+    public ApiResponse<QuizDetailResponse> getPublicQuizDetail(
+            @PathVariable Long quizId
+    ) {
+        return ApiResponse.success(
+                quizService.getPublicQuizDetail(quizId),
+                "Public quiz detail fetched"
+        );
+    }
+
     @GetMapping("/{quizId}")
     public ApiResponse<QuizDetailResponse> getQuizDetail(
             @PathVariable Long quizId,

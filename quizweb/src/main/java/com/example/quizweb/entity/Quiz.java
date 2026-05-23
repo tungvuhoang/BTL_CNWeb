@@ -30,6 +30,10 @@ public class Quiz {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
+    @Builder.Default
+    @Column(name = "is_public", nullable = false)
+    private Boolean isPublic = false;
+
     @OneToMany(mappedBy = "quiz", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<Question> questions = new ArrayList<>();

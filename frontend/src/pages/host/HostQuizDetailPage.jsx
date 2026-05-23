@@ -434,6 +434,35 @@ const HostQuizDetailPage = () => {
               >
                 Xoá
               </Button>
+
+              <Button
+                onClick={async () => {
+                  const nextIsPublic = !Boolean(quiz.isPublic);
+
+                  try {
+                    await updateQuiz(quizId, {
+                      title: quiz.title,
+                      isPublic: nextIsPublic,
+                    });
+
+                    setQuiz((prev) => ({
+                      ...prev,
+                      isPublic: nextIsPublic,
+                    }));
+
+                    message.success(
+                      nextIsPublic
+                        ? 'Quiz đã được đặt công khai'
+                        : 'Quiz đã được đặt riêng tư'
+                    );
+                  } catch (err) {
+                    console.log(err);
+                    message.error('Cập nhật trạng thái thất bại');
+                  }
+                }}
+              >
+                {quiz?.isPublic ? '🌍 Public' : '🔒 Private'}
+              </Button>
             </div>
           )}
         </div>

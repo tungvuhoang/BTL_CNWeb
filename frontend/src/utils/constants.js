@@ -11,8 +11,15 @@ export const ROUTES = {
   HOST_SETTINGS: '/host/settings',
   HOST_QUIZ_DETAIL: '/host/quizzes/:quizId',
   HOST_ROOM: '/host/rooms/:roomId',
+  HOST_PLAY: '/host/play',
   PLAY: '/play',
   PLAY_ROOM: '/play/room/:roomId',
+  HOST_CHANGE_PASSWORD: '/host/change-password',
+  HOST_PROFILE: '/host/profile',
+  FORGOT_PASSWORD: '/forgot-password',
+  RESET_PASSWORD: '/reset-password',
+  PUBLIC_QUIZZES: '/public-quizzes',
+  PUBLIC_QUIZ_DETAIL: '/public-quizzes/:quizId',
 };
 
 export const ROOM_STATUS = {

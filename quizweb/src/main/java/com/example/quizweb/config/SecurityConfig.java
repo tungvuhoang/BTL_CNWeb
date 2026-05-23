@@ -34,7 +34,6 @@ public class SecurityConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**").permitAll()
 
                         .requestMatchers("/api/game-rooms/join").permitAll()
                         .requestMatchers("/api/game-rooms/*").permitAll()
@@ -43,13 +42,22 @@ public class SecurityConfig {
                         .requestMatchers("/api/game-rooms/*/submit-answer").permitAll()
                         .requestMatchers("/api/game-rooms/*/leaderboard").permitAll()
                         .requestMatchers("/api/game-rooms/*/players/*/answers").permitAll()
+                        .requestMatchers("/api/auth/login", "/api/auth/register").permitAll()
 
+                        .requestMatchers("/api/auth/me", "/api/auth/change-password").authenticated()
+                        .requestMatchers("/api/auth/change-password").authenticated()
+                        .requestMatchers("/api/quizzes/public").permitAll()
                         .requestMatchers("/api/quizzes/**").authenticated()
                         .requestMatchers("/api/questions/**").authenticated()
                         .requestMatchers("/api/game-rooms").authenticated()
                         .requestMatchers("/api/game-rooms/*/start").authenticated()
                         .requestMatchers("/api/game-rooms/*/next").authenticated()
                         .requestMatchers("/api/game-rooms/*/end").authenticated()
+
+                        .requestMatchers(
+                                "/api/auth/forgot-password",
+                                "/api/auth/reset-password"
+                        ).permitAll()
 
                         .anyRequest().permitAll()
                 )

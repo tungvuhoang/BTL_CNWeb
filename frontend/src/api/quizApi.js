@@ -14,3 +14,13 @@ export const updateQuiz = (id, data) => axiosClient.put(`/quizzes/${id}`, data);
 
 /** DELETE /api/quizzes/:id — xoá quiz */
 export const deleteQuiz = (id) => axiosClient.delete(`/quizzes/${id}`);
+
+export const searchPublicQuizzes = (keyword = '') => {
+  return axiosClient.get('/quizzes/public', {
+    params: { keyword },
+  });
+};
+
+export const getPublicQuizDetail = (quizId) => {
+  return axiosClient.get(`/quizzes/public/${quizId}`);
+};

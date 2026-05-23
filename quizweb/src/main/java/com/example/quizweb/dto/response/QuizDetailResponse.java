@@ -14,4 +14,5 @@ public class QuizDetailResponse {
     private Long hostId;
     private LocalDateTime createdAt;
     private List<QuestionDetailResponse> questions;
+    private Boolean isPublic;
 }

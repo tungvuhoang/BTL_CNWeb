@@ -10,4 +10,5 @@ public class UpdateQuizRequest {
 
     @NotBlank(message = "Title must not be blank")
     private String title;
+    private Boolean isPublic;
 }

@@ -49,11 +49,7 @@ const BaseLayout = ({
           className={`base-sidebar ${sidebarOpen ? "base-sidebar--open" : ""}`}
         >
           <div className="base-sidebar__header">
-            <span className="base-sidebar__logo-icon" aria-hidden>
-              🎮
-            </span>
             <div className="base-sidebar__logo-text">
-              <p className="base-sidebar__app-name">Web_Quiz</p>
               <p className="base-sidebar__role">Host</p>
             </div>
           </div>
@@ -76,7 +72,6 @@ const BaseLayout = ({
               </NavLink>
             ))}
           </nav>
-          <div className="base-sidebar__footer">Chơi là học</div>
         </aside>
       )}
 
@@ -98,20 +93,6 @@ const BaseLayout = ({
           </div>
         </main>
 
-        <footer className="base-footer">
-          <div className="base-footer__container">
-            <div className="base-footer__info">
-              <p className="base-footer__title">🎯 Web_Quiz</p>
-              <p className="base-footer__desc">
-                Trải nghiệm quiz thời gian thực — giao diện lấy cảm hứng từ Kahoot, phù hợp
-                host và người chơi.
-              </p>
-            </div>
-            <p className="base-footer__copy">
-              © {new Date().getFullYear()} Web_Quiz
-            </p>
-          </div>
-        </footer>
       </div>
     </div>
   );
