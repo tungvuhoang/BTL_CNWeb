@@ -37,6 +37,9 @@ public class SecurityConfig {
                         // Cho phép preflight request của CORS
                         .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
 
+                        // Cho phép WebSocket/SockJS handshake
+                        .requestMatchers("/ws/**").permitAll()
+
                         // Auth public
                         .requestMatchers(
                                 "/api/auth/login",
@@ -77,10 +80,10 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        configuration.setAllowedOrigins(List.of(
+        configuration.setAllowedOriginPatterns(List.of(
                 "http://localhost:5173",
                 "https://quiz-arena-ivory.vercel.app",
-                "https://quiz-arena-ivarmgkaw-tung-s-projects10.vercel.app"
+                "https://quiz-arena-*.vercel.app"
         ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
