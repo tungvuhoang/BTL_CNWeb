@@ -45,7 +45,6 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/login", "/api/auth/register").permitAll()
 
                         .requestMatchers("/api/auth/me", "/api/auth/change-password").authenticated()
-                        .requestMatchers("/api/auth/change-password").authenticated()
                         .requestMatchers("/api/quizzes/public").permitAll()
                         .requestMatchers("/api/quizzes/**").authenticated()
                         .requestMatchers("/api/questions/**").authenticated()
@@ -59,7 +58,7 @@ public class SecurityConfig {
                                 "/api/auth/reset-password"
                         ).permitAll()
 
-                        .anyRequest().permitAll()
+                        .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

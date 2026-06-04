@@ -13,9 +13,9 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     // Cấu hình endpoint /ws
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        registry.addEndpoint("/ws") // Mở endpoint "/ws" để client kết nối vào
-                .setAllowedOriginPatterns("*") // Mở CORS để React app ở port khác có thể kết nối
-                .withSockJS(); // Cung cấp fallback SockJS nếu trình duyệt bị chặn WebSockets thuần
+        registry.addEndpoint("/ws")
+            .setAllowedOriginPatterns("http://localhost:5173")
+            .withSockJS(); // Cung cấp fallback SockJS nếu trình duyệt bị chặn WebSockets thuần
     }
 
     // Cấu hình broker và prefix
