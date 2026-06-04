@@ -24,28 +24,32 @@ export const createPlayerSocket = ({
       onConnect?.();
 
       client.subscribe(`/topic/rooms/${roomId}`, (message) => {
+        console.log("ROOM MESSAGE:", message.body);
         const event = JSON.parse(message.body);
         onRoomUpdate?.(event);
       });
 
       client.subscribe(`/topic/rooms/${roomId}/question`, (message) => {
+        console.log("QUESTION MESSAGE:", message.body);
         const event = JSON.parse(message.body);
         onQuestionUpdate?.(event);
       });
 
       client.subscribe(`/topic/rooms/${roomId}/leaderboard`, (message) => {
+        console.log("LEADERBOARD MESSAGE:", message.body);
         const event = JSON.parse(message.body);
         onLeaderboardUpdate?.(event);
       });
 
       client.subscribe(`/topic/rooms/${roomId}/players`, (message) => {
+        console.log("PLAYER MESSAGE:", message.body);
         const event = JSON.parse(message.body);
         onPlayerJoined?.(event);
       });
     },
 
     onDisconnect: () => {
-      console.log("WebSocket disconnected");
+      console.log("❌ WebSocket disconnected");
       onDisconnect?.();
     },
 

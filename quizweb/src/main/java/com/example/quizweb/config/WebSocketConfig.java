@@ -15,7 +15,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         registry.addEndpoint("/ws")
                 .setAllowedOriginPatterns(
                         "http://localhost:5173",
-                        "https://quiz-arena-ivory.vercel.app"
+                        "https://quiz-arena-ivory.vercel.app",
+                        "https://quiz-arena-ivarmgkaw-tung-s-projects10.vercel.app"
                 )
                 .withSockJS();
     }

@@ -79,7 +79,8 @@ public class SecurityConfig {
 
         configuration.setAllowedOrigins(List.of(
                 "http://localhost:5173",
-                "https://quiz-arena-ivory.vercel.app"
+                "https://quiz-arena-ivory.vercel.app",
+                "https://quiz-arena-ivarmgkaw-tung-s-projects10.vercel.app"
         ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
