@@ -19,8 +19,7 @@ export const AuthProvider = ({ children }) => {
       }
 
       try {
-        const res = await getMyProfile();
-        const profile = res.data;
+        const profile = await getMyProfile();
 
         setUser(profile);
         setUsername(profile.username || localStorage.getItem("username"));
@@ -56,8 +55,7 @@ export const AuthProvider = ({ children }) => {
     }
 
     try {
-      const res = await getMyProfile();
-      const profile = res.data;
+      const profile = await getMyProfile();
 
       setUser(profile);
       setUsername(profile.username || username);
