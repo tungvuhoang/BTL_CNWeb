@@ -34,7 +34,21 @@ public class SecurityConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
+                        // Cho phép preflight request của CORS
+                        .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
 
+                        // Auth public
+                        .requestMatchers(
+                                "/api/auth/login",
+                                "/api/auth/register",
+                                "/api/auth/forgot-password",
+                                "/api/auth/reset-password"
+                        ).permitAll()
+
+                        // Public quiz
+                        .requestMatchers("/api/quizzes/public").permitAll()
+
+                        // Public game/player APIs
                         .requestMatchers("/api/game-rooms/join").permitAll()
                         .requestMatchers("/api/game-rooms/*").permitAll()
                         .requestMatchers("/api/game-rooms/*/players").permitAll()
@@ -42,21 +56,15 @@ public class SecurityConfig {
                         .requestMatchers("/api/game-rooms/*/submit-answer").permitAll()
                         .requestMatchers("/api/game-rooms/*/leaderboard").permitAll()
                         .requestMatchers("/api/game-rooms/*/players/*/answers").permitAll()
-                        .requestMatchers("/api/auth/login", "/api/auth/register").permitAll()
 
+                        // Authenticated APIs
                         .requestMatchers("/api/auth/me", "/api/auth/change-password").authenticated()
-                        .requestMatchers("/api/quizzes/public").permitAll()
                         .requestMatchers("/api/quizzes/**").authenticated()
                         .requestMatchers("/api/questions/**").authenticated()
                         .requestMatchers("/api/game-rooms").authenticated()
                         .requestMatchers("/api/game-rooms/*/start").authenticated()
                         .requestMatchers("/api/game-rooms/*/next").authenticated()
                         .requestMatchers("/api/game-rooms/*/end").authenticated()
-
-                        .requestMatchers(
-                                "/api/auth/forgot-password",
-                                "/api/auth/reset-password"
-                        ).permitAll()
 
                         .anyRequest().authenticated()
                 )
@@ -69,9 +77,13 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        configuration.setAllowedOrigins(List.of("http://localhost:5173"));
+        configuration.setAllowedOrigins(List.of(
+                "http://localhost:5173",
+                "https://quiz-arena-ivory.vercel.app"
+        ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
+        configuration.setExposedHeaders(List.of("Authorization"));
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
