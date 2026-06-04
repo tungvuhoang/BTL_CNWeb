@@ -5,7 +5,7 @@ import { ROUTES } from "../utils/constants";
 const axiosClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api",
   headers: { "Content-Type": "application/json" },
-  timeout: 10000,
+  timeout: 60000,
 });
 
 axiosClient.interceptors.request.use(
