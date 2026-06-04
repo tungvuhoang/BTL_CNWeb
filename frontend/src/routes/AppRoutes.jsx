@@ -55,8 +55,7 @@ const AppRoutes = () => (
       <Route path={ROUTES.PLAY} element={<PlayJoinPage />} />
       <Route path={ROUTES.PLAY_ROOM} element={<PlayRoomPage />} />
     </Route>
-
-    <Route path="/" element={<Navigate to={ROUTES.LOGIN} replace />} />
+    
     <Route path="*" element={<NotFoundPage />} />
   </Routes>
 );

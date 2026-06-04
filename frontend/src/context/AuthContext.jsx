@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { getToken, setToken, removeToken } from "../utils/token";
+import { getMyProfile } from "../api/authApi";
 
 export const AuthContext = createContext(null);
 
@@ -9,16 +10,34 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = getToken();
-    if (token) {
-      setUser({ id: 1, name: "User" });
-      const storedUsername = localStorage.getItem("username");
-      if (storedUsername) setUsername(storedUsername);
-    }
-    setLoading(false);
+    const initAuth = async () => {
+      const token = getToken();
+
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const res = await getMyProfile();
+        const profile = res.data;
+
+        setUser(profile);
+        setUsername(profile.username || localStorage.getItem("username"));
+      } catch (error) {
+        removeToken();
+        localStorage.removeItem("username");
+        setUser(null);
+        setUsername(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initAuth();
   }, []);
 
-  const login = (tokenOrPayload, maybeUsername) => {
+  const login = async (tokenOrPayload, maybeUsername) => {
     const token =
       typeof tokenOrPayload === "object"
         ? tokenOrPayload.token
@@ -30,16 +49,29 @@ export const AuthProvider = ({ children }) => {
         : maybeUsername;
 
     setToken(token);
-    setUser({ id: 1, name: username });
-    setUsername(username);
-    localStorage.setItem("username", username);
+
+    if (username) {
+      localStorage.setItem("username", username);
+      setUsername(username);
+    }
+
+    try {
+      const res = await getMyProfile();
+      const profile = res.data;
+
+      setUser(profile);
+      setUsername(profile.username || username);
+    } catch (error) {
+      setUser({ username });
+      setUsername(username);
+    }
   };
 
   const logout = () => {
     removeToken();
+    localStorage.removeItem("username");
     setUser(null);
     setUsername(null);
-    localStorage.removeItem("username");
   };
 
   const value = {
@@ -56,6 +88,10 @@ export const AuthProvider = ({ children }) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) throw new Error("useAuth must be used within AuthProvider");
+
+  if (!context) {
+    throw new Error("useAuth must be used within AuthProvider");
+  }
+
   return context;
 };
