@@ -1,20 +1,23 @@
 package com.example.quizweb.service;
 
 import com.example.quizweb.config.JwtTokenProvider;
-import com.example.quizweb.dto.request.*;
+import com.example.quizweb.dto.request.ChangePasswordRequest;
+import com.example.quizweb.dto.request.ForgotPasswordRequest;
+import com.example.quizweb.dto.request.LoginRequest;
+import com.example.quizweb.dto.request.RegisterRequest;
+import com.example.quizweb.dto.request.ResetPasswordRequest;
+import com.example.quizweb.dto.request.UpdateProfileRequest;
 import com.example.quizweb.dto.response.LoginResponse;
+import com.example.quizweb.dto.response.UserProfileResponse;
 import com.example.quizweb.entity.User;
 import com.example.quizweb.exception.ApiException;
 import com.example.quizweb.exception.ErrorCode;
 import com.example.quizweb.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.example.quizweb.dto.response.UserProfileResponse;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.SimpleMailMessage;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -26,7 +29,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
-    private final JavaMailSender mailSender;
+    private final EmailService emailService;
 
     @Value("${app.frontend-url}")
     private String frontendUrl;
@@ -149,6 +152,7 @@ public class AuthService {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElse(null);
 
+        // Không báo email có tồn tại hay không để tránh lộ thông tin tài khoản
         if (user == null) {
             return;
         }
@@ -161,19 +165,12 @@ public class AuthService {
 
         String resetLink = frontendUrl + "/reset-password?token=" + token;
 
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setTo(user.getEmail());
-        message.setSubject("Reset your Web Quiz password");
-        message.setText(
-                "Xin chào " + user.getFullName() + ",\n\n" +
-                        "Bạn vừa yêu cầu đặt lại mật khẩu.\n" +
-                        "Bấm vào link sau để đổi mật khẩu:\n" +
-                        resetLink + "\n\n" +
-                        "Link này có hiệu lực trong 30 phút.\n\n" +
-                        "Nếu bạn không yêu cầu, hãy bỏ qua email này."
+        // Gửi mail async để API không bị treo/timeout
+        emailService.sendResetPasswordEmail(
+                user.getEmail(),
+                user.getFullName(),
+                resetLink
         );
-
-        mailSender.send(message);
     }
 
     @Transactional
@@ -198,5 +195,4 @@ public class AuthService {
 
         userRepository.save(user);
     }
-
 }
