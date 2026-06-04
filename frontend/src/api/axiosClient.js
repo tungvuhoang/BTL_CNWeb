@@ -11,7 +11,11 @@ const axiosClient = axios.create({
 axiosClient.interceptors.request.use(
   (config) => {
     const token = getToken();
-    if (token) config.headers.Authorization = `Bearer ${token}`;
+
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
     return config;
   },
   (error) => Promise.reject(error)
@@ -20,10 +24,23 @@ axiosClient.interceptors.request.use(
 axiosClient.interceptors.response.use(
   (response) => response.data,
   (error) => {
-    if (error.response?.status === 401) {
+    const status = error.response?.status;
+    const currentPath = window.location.pathname;
+
+    if (status === 401) {
       removeToken();
-      window.location.href = ROUTES.LOGIN;
+
+      const isAuthPage =
+        currentPath === ROUTES.LOGIN ||
+        currentPath === ROUTES.REGISTER ||
+        currentPath === "/forgot-password" ||
+        currentPath.startsWith("/reset-password");
+
+      if (!isAuthPage) {
+        window.location.href = ROUTES.LOGIN;
+      }
     }
+
     return Promise.reject(error.response?.data || error);
   }
 );
